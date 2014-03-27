@@ -6,10 +6,11 @@
 #include "llvm/Pass.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Support/InstIterator.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/PostOrderIterator.h"
-#include "llvm/Analysis/Dominators.h"
+#include "llvm/ADT/DenseMap.h"
+#include "llvm/IR/Dominators.h"
 #include "llvm/Support/Debug.h"
 #include "valueNumbering.h"
 

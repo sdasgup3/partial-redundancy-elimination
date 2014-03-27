@@ -1,4 +1,5 @@
 using namespace llvm;
+#include "llvm/ADT/DenseMap.h"
 
 //----------------------------------------------------------------------===
  //                         ValueTable Class
