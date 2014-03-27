@@ -7,11 +7,10 @@
 //
 //===----------------------------------------------------------------------===//
 //  
-//      TODO : Add a description here 
+//      
 //===----------------------------------------------------------------------===//
 
-#define MYDEBUG 
-#define MAX_VAL 5
+//#define MYDEBUG 
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
@@ -49,6 +48,7 @@ namespace {
 
     bool runOnFunction(Function &F);
     DenseMap<BasicBlock*, dfva*> BBMap;
+    uint32_t bitVectorWidth;
     
     virtual void getAnalysisUsage(AnalysisUsage &AU) const {
       AU.addRequired<DominatorTreeWrapperPass>();
@@ -91,13 +91,11 @@ bool LCM::runOnFunction(Function &F)
   RPO rpo(F);
   rpo.performVN();  // Value Numbering is implemented by this function
 
+  std::vector<std::pair<uint32_t, uint32_t> > tmp = rpo.getRepeatedValues();
+  bitVectorWidth = tmp.size();
   
   
-  // Example usage of getRepeatedValues()
-  // .. 
-  //std::vector<std::pair<uint32_t, uint32_t> > tmp = rpo.getRepeatedValues();
-  //uint32_t bitVectorWidth = tmp.size();
-
+  
   //for(std::vector<std::pair<uint32_t, uint32_t> >::iterator I = tmp.begin(), E = tmp.end(); I!=E; ++I)
   //   errs() << "VN-" << I->first << " Count-" << I->second << "\n";
   
@@ -142,10 +140,10 @@ void LCM::initializeDFAFramework(Function &F)
       E = RPOT.end(); I != E; ++I) {
      BasicBlock* BB = *I;
      dfva *D    =   new dfva(); 
-     D->In      =   new SmallBitVector(MAX_VAL, false);    
-     D->Out     =   new SmallBitVector(MAX_VAL, false);    
-     D->Gen     =   new SmallBitVector(MAX_VAL, false);    
-     D->Kill    =   new SmallBitVector(MAX_VAL, false);    
+     D->In      =   new SmallBitVector(bitVectorWidth, false);    
+     D->Out     =   new SmallBitVector(bitVectorWidth, false);    
+     D->Gen     =   new SmallBitVector(bitVectorWidth, false);    
+     D->Kill    =   new SmallBitVector(bitVectorWidth, false);    
      BBMap[BB] = D;
    }
 }
@@ -219,8 +217,8 @@ void LCM::performGlobalDFA(Function &F)
       SmallBitVector* genBB     = D->Gen;
       SmallBitVector* killBB    = D->Kill;
 
-      SmallBitVector* newOutBB = new SmallBitVector(MAX_VAL, true);
-      SmallBitVector* newInBB = new SmallBitVector(MAX_VAL, false);
+      SmallBitVector* newOutBB = new SmallBitVector(bitVectorWidth, true);
+      SmallBitVector* newInBB = new SmallBitVector(bitVectorWidth, false);
       
       // Calculate newOutBB as the meet of the In's of all the successors
       bool isExitBB = true;
