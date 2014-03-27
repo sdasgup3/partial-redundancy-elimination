@@ -436,6 +436,12 @@ void RPO::handleSpecialCases() {
   }
 }
 
+void RPO::print() {
+
+  for(inst_iterator I = inst_begin(F), E = inst_end(F); I!=E; ++I)
+    errs() << "[DEBUG] " << *I << " [VN - "<<VT.lookup(&*I)<<"]\n";
+}
+
 uint32_t RPO::getNumberForValue(Value *V) {
   return VT.lookup(V);
 }

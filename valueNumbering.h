@@ -145,6 +145,9 @@ class RPO {
     // and the operator is either AND, OR, CMP::EQ, CMP::NE
     void handleSpecialCases();
 
+    // print all instructions with their corresponding VN
+    void print();
+    
     // -- Define all interface functions below --
     
     uint32_t getNumberForValue(Value *V);
