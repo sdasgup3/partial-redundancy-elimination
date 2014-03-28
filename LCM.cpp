@@ -10,7 +10,7 @@
 //      
 //===----------------------------------------------------------------------===//
 
-//#define MYDEBUG 
+#define MYDEBUG 
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
@@ -87,14 +87,18 @@ FunctionPass* doLCM() {return new LCM();}
 bool LCM::runOnFunction(Function &F) 
 {
 
-  bool Changed = true;
+  bool Changed = false;
   RPO rpo(F);
-  rpo.performVN();  // Value Numbering is implemented by this function
+  rpo.performVN();  
+  rpo.print();  
 
   std::vector<std::pair<uint32_t, uint32_t> > tmp = rpo.getRepeatedValues();
   bitVectorWidth = tmp.size();
-  
-  
+
+  if(0 == bitVectorWidth) {
+    dbgs() << "Nothing to do\n" ; 
+    return Changed;
+  }
   
   //for(std::vector<std::pair<uint32_t, uint32_t> >::iterator I = tmp.begin(), E = tmp.end(); I!=E; ++I)
   //   errs() << "VN-" << I->first << " Count-" << I->second << "\n";
@@ -178,14 +182,20 @@ void LCM::calculateKill(BasicBlock* BB, SmallBitVector* BV)
 
 /*******************************************************************
  * Function :   calculateGen
- * Purpose  :   Calculate the Gen 
+ * Purpose  :   Calculate the Antloc 
 ********************************************************************/
 void LCM::calculateGen(BasicBlock* BB, SmallBitVector* BV)
 {
-  //TO DO
-  for(unsigned VI=0; VI < BV->size(); VI++) {
-    (*BV)[VI] = 1;
+  /*
+  for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; ++I)
+    Instruction* BBI = I;
+    for (User::op_iterator OP = BBI->op_begin(), E = BBI->op_end(); OP != E; ++OP) {
+      if(Instruction *Ins = dyn_cast<Instruction>(OP)) {
+
+      }
+    }
   }
+  */
 }
 
 /*******************************************************************
