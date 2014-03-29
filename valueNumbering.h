@@ -1,5 +1,4 @@
 using namespace llvm;
-#include "llvm/ADT/DenseMap.h"
 
 //----------------------------------------------------------------------===
  //                         ValueTable Class
@@ -63,6 +62,7 @@ class ValueTable {
     DenseMap<uint32_t, Value*> leaderBoard;
  
     uint32_t nextValueNumber;
+    uint32_t maxValueNumber;
  
     Expression::ExpressionOpcode getOpcode(BinaryOperator* BO);
     Expression::ExpressionOpcode getOpcode(CmpInst* C);
@@ -136,6 +136,7 @@ class RPO {
   private :
     Function& F;
     ValueTable VT;
+    DenseMap<uint32_t, uint32_t> VNtoBVPos; 
     
   public:
     RPO(Function &f) : F(f) {}
@@ -145,9 +146,14 @@ class RPO {
     // and the operator is either AND, OR, CMP::EQ, CMP::NE
     void handleSpecialCases();
 
+    // length of the bit-vector for DFA is the number of repeated values. This
+    // function does a hash from Value Number to position in Bit Vector
+    void calculateBitVectorPosition();
+    uint32_t getBitVectorPosition(Value* V);
+
     // print all instructions with their corresponding VN
     void print();
-    
+
     // -- Define all interface functions below --
     
     uint32_t getNumberForValue(Value *V);

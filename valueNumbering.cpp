@@ -357,6 +357,8 @@
  void ValueTable::clearExpressions() {
    expressionNumbering.clear();
    constantsNumbering.clear();
+   if(nextValueNumber-1  > maxValueNumber)
+     maxValueNumber = nextValueNumber-1;
    nextValueNumber = 1;
  }
  
@@ -398,6 +400,7 @@ void RPO::performVN() {
   }
 
   handleSpecialCases();
+  calculateBitVectorPosition();
 }
 
 void RPO::handleSpecialCases() {
@@ -434,6 +437,24 @@ void RPO::handleSpecialCases() {
 
    ++I;
   }
+}
+
+void RPO::calculateBitVectorPosition() {
+
+  uint32_t k=0;  
+  std::vector<std::pair<uint32_t, uint32_t> > repeatedValues = getRepeatedValues();
+  
+  for(uint32_t i=1; i <= VT.maxValueNumber; i++)
+    VNtoBVPos[i] = repeatedValues.size();
+
+  for(std::vector<std::pair<uint32_t, uint32_t> >::iterator I = repeatedValues.begin(), E = repeatedValues.end(); I!=E; ++I)
+    VNtoBVPos[I->first] = k++;
+}
+
+uint32_t RPO::getBitVectorPosition(Value* V) {
+
+  uint32_t vn = getNumberForValue(V);
+  return VNtoBVPos[vn];
 }
 
 void RPO::print() {
