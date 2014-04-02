@@ -166,18 +166,6 @@ void LCM::initializeDFAFramework() {
     
     BBMap[BB] = dfvaInstance;
   }
-
-   /*ReversePostOrderTraversal<Function*> RPOT(&F);
-   for (ReversePostOrderTraversal<Function*>::rpo_iterator I = RPOT.begin(),
-      E = RPOT.end(); I != E; ++I) {
-     BasicBlock* BB = *I;
-     dfva *D    =   new dfva(); 
-     D->In      =   new SmallBitVector(bitVectorWidth, false);    
-     D->Out     =   new SmallBitVector(bitVectorWidth, false);    
-     D->Gen     =   new SmallBitVector(bitVectorWidth, false);    
-     D->Kill    =   new SmallBitVector(bitVectorWidth, false);    
-     BBMap[BB] = D;
-   }*/
 }
 
 /*******************************************************************
