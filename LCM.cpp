@@ -67,6 +67,7 @@ namespace {
 
     private:
       Function* Func;
+      RPO* rpo;
 
       // Maps each Basic Block to a vector of SmallBitVectors, each of which
       // represents a property as defined in bitVectors enum 
@@ -92,9 +93,8 @@ namespace {
       SmallBitVector getSBVForElement(uint32_t num, BasicBlock* BB);
       void printFlowEquations();
 
-      void calculateGen(BasicBlock*, SmallBitVector*);
-      void calculateKill(BasicBlock*, SmallBitVector*);
-      void TF(SmallBitVector*, SmallBitVector*, SmallBitVector*, SmallBitVector*);
+      SmallBitVector calculateAntloc(BasicBlock*);
+      SmallBitVector calculateTrans(BasicBlock*);
   };
 }  
 
@@ -112,11 +112,12 @@ bool LCM::runOnFunction(Function &F)
 {
   Func = &F;
   bool Changed = false;
-  RPO rpo(F);
-  rpo.performVN();  
-  //rpo.print();  
+  rpo = new RPO(F);
+  rpo->performVN();  
+
+  rpo->print();  
   
-  bitVectorWidth = rpo.getRepeatedValues().size();
+  bitVectorWidth = rpo->getRepeatedValues().size();
 
   if(0 == bitVectorWidth) {
     dbgs() << "Nothing to do\n" ; 
@@ -175,64 +176,108 @@ void LCM::initializeDFAFramework() {
 void LCM::performConstDFA()
 {
 
-  // -- Random Testing Begin -- 
   SmallBitVector random(bitVectorWidth, false);
+
+  /*
   for(unsigned VI=0; VI < bitVectorWidth; VI++) 
     if(VI%2)    
       random[VI] = true;
+  */
+
 
   dfva* dfvaInstance;
-  uint32_t k=0;
+  //uint32_t k=0;
+  //rpo->print();
   for (Function::iterator BB = Func->begin(), E = Func->end(); BB != E; ++BB) {
     dfvaInstance = BBMap[BB];
 
+    *((*dfvaInstance)[ANTLOC]) = calculateAntloc(BB);
+    *((*dfvaInstance)[TRANSP]) = calculateTrans(BB);
+    /*
     if((++k)%3)
       *((*dfvaInstance)[ANTLOC]) = random;
 
     if(k%2)
       *((*dfvaInstance)[TRANSP]) = random;
-  }
-
-  // -- Random Testing End --
-
-  /* ReversePostOrderTraversal<Function*> RPOT(&F);
-   for (ReversePostOrderTraversal<Function*>::rpo_iterator I = RPOT.begin(),
-      E = RPOT.end(); I != E; ++I) {
-     BasicBlock* BB = *I;
-     dfva *D  =   BBMap[BB];
-     calculateGen(BB, D->Gen);
-     calculateKill(BB, D->Kill);
-   }*/
-}
-
-/*******************************************************************
- * Function :   calculateKill
- * Purpose  :   Calculate the Kill 
-********************************************************************/
-void LCM::calculateKill(BasicBlock* BB, SmallBitVector* BV)
-{
-  //TO DO
-  for(unsigned VI=0; VI < BV->size(); VI++) {
-    (*BV)[VI] = 1;
+    */
   }
 }
 
 /*******************************************************************
- * Function :   calculateGen
- * Purpose  :   Calculate the Antloc 
+ * Function :   calculateTrans
+ * Purpose  :   Calculate the Trans 
 ********************************************************************/
-void LCM::calculateGen(BasicBlock* BB, SmallBitVector* BV)
+SmallBitVector LCM::calculateTrans(BasicBlock* BB)
 {
-  /*
-  for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; ++I)
+  dbgs() << "Finding Trans BB\n";
+  BB->printAsOperand(dbgs(),false);
+
+  SmallBitVector returnValue(bitVectorWidth, true);
+
+  for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; ++I) {
     Instruction* BBI = I;
-    for (User::op_iterator OP = BBI->op_begin(), E = BBI->op_end(); OP != E; ++OP) {
+    uint32_t  VI  = rpo->getBitVectorPosition(BBI);  
+    if(VI >= bitVectorWidth) 
+      continue;
+    dbgs() << "\tInstruction: " << *BBI << " Value " << VI  << " \n";
+    Value* V = rpo->getLeader(BBI);
+    Instruction* LI =  cast<Instruction>(V);
+    if(NULL == LI) {
+      continue;
+    }
+    dbgs() << "\tLeader Instruction: " << *LI << " \n";
+    bool isAnyOpDef = false;
+    for (User::op_iterator OP = LI->op_begin(), E = LI->op_end(); OP != E; ++OP) {
       if(Instruction *Ins = dyn_cast<Instruction>(OP)) {
-
+        isAnyOpDef = true;
+        if(BB != Ins->getParent()) {
+          dbgs() << " Transparent \n";
+          returnValue[VI] = 0;
+        }
       }
     }
+    if(false == isAnyOpDef) {
+      dbgs() << " Transparent \n";
+      returnValue[VI] = 0;
+    }
   }
-  */
+  return returnValue;
+}
+
+/*******************************************************************
+ * Function :   calculateAntloc
+ * Purpose  :   Calculate the Antloc 
+********************************************************************/
+SmallBitVector LCM::calculateAntloc(BasicBlock* BB)
+{
+  dbgs() << "Finding Antloc BB\n";
+  BB->printAsOperand(dbgs(),false);
+
+  SmallBitVector returnValue(bitVectorWidth, false);
+
+  for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; ++I) {
+    Instruction* BBI = I;
+    uint32_t  VI  = rpo->getBitVectorPosition(BBI);  
+    if(VI >= bitVectorWidth) 
+      continue;
+    dbgs() << "\tInstruction: " << *BBI << " Value " << VI << "Size" << bitVectorWidth<< " \n";
+    bool isAnyOpDef = false;
+    for (User::op_iterator OP = BBI->op_begin(), E = BBI->op_end(); OP != E; ++OP) {
+      if(Instruction *Ins = dyn_cast<Instruction>(OP)) {
+        isAnyOpDef = true;
+        dbgs() << *Ins << "\n";
+        if(BB != Ins->getParent()) {
+          dbgs() << " Antloc \n";
+          returnValue[VI] = 1;  
+        }
+      }
+    }
+    if(false == isAnyOpDef) {
+      dbgs() << " Antloc \n";
+      returnValue[VI] = 1;  
+    }
+  }
+  return returnValue;
 }
 
 // See desciption of getSBVForExpression function
@@ -516,75 +561,6 @@ void LCM::performGlobalDFA() {
 
   // calculating optimal and redundant points
   calculateOptAndRedn();
-}
-
-
-/*******************************************************************
- * Function :   performGlobalDFA
- * Purpose  :   Performing iterative DFA (backwards)
-********************************************************************/
-/*void LCM::performGlobalDFA(Function &F)
-{
-  bool change = false;
-  int iterCount = 1;
-  do {
-    #ifdef MYDEBUG    
-    dbgs() << "\t\t\tIteration " << iterCount << "\n";
-    #endif
-    iterCount++;
-    change = false;
-    for (po_iterator<BasicBlock *> I = po_begin(&F.getEntryBlock()),
-                                 E = po_end(&F.getEntryBlock()); I != E; ++I) {
-      BasicBlock* BB = *I;
-      dfva* D = BBMap[BB];
-      #ifdef MYDEBUG    
-      dbgs() << "-------------------------------- \n";
-      dbgs() << "Before : \n";
-      dumpBBAttr(BB, D);
-      #endif
-
-      SmallBitVector* oldInBB   = D->In;
-      SmallBitVector* oldOutBB  = D->Out;
-      SmallBitVector* genBB     = D->Gen;
-      SmallBitVector* killBB    = D->Kill;
-
-      SmallBitVector* newOutBB = new SmallBitVector(bitVectorWidth, true);
-      SmallBitVector* newInBB = new SmallBitVector(bitVectorWidth, false);
-      
-      // Calculate newOutBB as the meet of the In's of all the successors
-      bool isExitBB = true;
-      for (succ_iterator SI = succ_begin(BB), SE = succ_end(BB); SI != SE; SI++) {
-        isExitBB = false;
-        BasicBlock* SB  = *SI;
-        SmallBitVector* inSB  =BBMap[SB]->In;
-        (*newOutBB) &= (*inSB);
-      }
-      if(false == isExitBB) {
-        delete oldOutBB;
-        D->Out = newOutBB;
-      }
-
-      // Calculate the newInBB as the result of the transfer function
-      TF(newInBB, genBB, D->Out, killBB);
-      if((*newInBB) != (*oldInBB)) {
-        change = true;
-        delete oldInBB;
-        D->In = newInBB;
-      }
-      #ifdef MYDEBUG
-      dbgs() << "After : \n";
-      dumpBBAttr(BB, D);
-      #endif
-    }
-  } while(true == change);
-}*/
-
-/*******************************************************************
- * Function :   TF
- * Purpose  :   Transfer function
-********************************************************************/
-void LCM::TF(SmallBitVector* i, SmallBitVector*g, SmallBitVector*o, SmallBitVector*k) {
-//  (*i) = (*g) | ((*o) & ~(*k));
 }
 
 void LCM::dumpSmallBitVector(SmallBitVector* BV) {
