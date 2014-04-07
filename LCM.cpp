@@ -36,18 +36,24 @@ namespace {
   enum bitVectors {
    ANTLOC = 0,
    TRANSP,
+   XCOMP,
    ANTIN, 
    ANTOUT,
+   AVAILIN,
+   AVAILOUT,
    EARLIN,
    EARLOUT,
    DELAYIN,
    DELAYOUT,
    LATESTIN,
+   LATESTOUT,
    ISOLIN,
    ISOLOUT,
-   OPT,
-   REDN,
-   TOTALBITVECTORS // = 13
+   INSERTIN,
+   INSERTOUT,
+   REPLACEIN,
+   REPLACEOUT,
+   TOTALBITVECTORS // = 19
   };
   
   struct LCM : public FunctionPass {
@@ -87,14 +93,16 @@ namespace {
       void performGlobalDFA();
       
       void callFramework(uint32_t out, uint32_t in, std::vector<uint32_t> alpha, std::vector<uint32_t> beta, std::vector<uint32_t> gamma, bool meetOp, bool init, bool direction);
-      void calculateLatestIn();
-      void calculateOptAndRedn();
+      void calculateEarliest();
+      void calculateLatest();
+      void calculateInsertReplace();
       SmallBitVector getSBVForExpression(std::vector<uint32_t> input, BasicBlock* BB);
       SmallBitVector getSBVForElement(uint32_t num, BasicBlock* BB);
       void printFlowEquations();
 
       SmallBitVector calculateAntloc(BasicBlock*);
       SmallBitVector calculateTrans(BasicBlock*);
+      SmallBitVector calculateXcomp(BasicBlock*);
   };
 }  
 
@@ -114,7 +122,6 @@ bool LCM::runOnFunction(Function &F)
   bool Changed = false;
   rpo = new RPO(F);
   rpo->performVN();  
-
   rpo->print();  
   
   bitVectorWidth = rpo->getRepeatedValues().size();
@@ -193,6 +200,7 @@ void LCM::performConstDFA()
 
     *((*dfvaInstance)[ANTLOC]) = calculateAntloc(BB);
     *((*dfvaInstance)[TRANSP]) = calculateTrans(BB);
+    *((*dfvaInstance)[XCOMP]) = calculateXcomp(BB);
     /*
     if((++k)%3)
       *((*dfvaInstance)[ANTLOC]) = random;
@@ -204,13 +212,22 @@ void LCM::performConstDFA()
 }
 
 /*******************************************************************
+ * Function :   calculateXcomp
+ * Purpose  :   Calculate the Xcomp 
+********************************************************************/
+SmallBitVector LCM::calculateXcomp(BasicBlock* BB)
+{
+  // TODO : fill function
+}
+  
+/*******************************************************************
  * Function :   calculateTrans
  * Purpose  :   Calculate the Trans 
 ********************************************************************/
 SmallBitVector LCM::calculateTrans(BasicBlock* BB)
 {
   dbgs() << "Finding Trans BB\n";
-  BB->printAsOperand(dbgs(),false);
+  //BB->printAsOperand(dbgs(),false);
 
   SmallBitVector returnValue(bitVectorWidth, true);
 
@@ -251,7 +268,7 @@ SmallBitVector LCM::calculateTrans(BasicBlock* BB)
 SmallBitVector LCM::calculateAntloc(BasicBlock* BB)
 {
   dbgs() << "Finding Antloc BB\n";
-  BB->printAsOperand(dbgs(),false);
+  //BB->printAsOperand(dbgs(),false);
 
   SmallBitVector returnValue(bitVectorWidth, false);
 
@@ -387,17 +404,17 @@ void LCM::callFramework(uint32_t out, uint32_t in, std::vector<uint32_t> alpha, 
         bool first = true;
         for(pred_iterator PI = pred_begin(BB), PE = pred_end(BB); PI!=PE; ++PI) {
           
-          dfva* predDfvaInstance = BBMap[*PI];
-          
+          SmallBitVector meetExpression =  getSBVForExpression(beta, *PI);
+
           if(first) {
            first = false;
-           meetOverPreds = *(*predDfvaInstance)[out];
+           meetOverPreds = meetExpression;
           }
           else {
             if(meetOp)
-              meetOverPreds &= *(*predDfvaInstance)[out];
+              meetOverPreds &= meetExpression;
             else
-              meetOverPreds |= *(*predDfvaInstance)[out];
+              meetOverPreds |= meetExpression;
           }
         }
    
@@ -406,11 +423,11 @@ void LCM::callFramework(uint32_t out, uint32_t in, std::vector<uint32_t> alpha, 
           meetOverPreds = initVector;
 
         // 1st data flow eq. 'In' as a function of 'Out'
-        *(inVector) = getSBVForExpression(gamma, BB) | meetOverPreds;   
-        
+        *(inVector) = getSBVForExpression(alpha, BB) | meetOverPreds;   
+
         SmallBitVector oldOutVector = *(outVector);
         // 2nd data flow eq. 'Out' as a function of 'In'
-        *(outVector) = getSBVForExpression(alpha, BB) | (*(inVector) & getSBVForExpression(beta, BB));  
+        *(outVector) = getSBVForExpression(gamma, BB);
         SmallBitVector newOutVector = *(outVector);
         if(oldOutVector != newOutVector)
           Changed = true;
@@ -442,17 +459,17 @@ void LCM::callFramework(uint32_t out, uint32_t in, std::vector<uint32_t> alpha, 
         bool first = true;
         for (succ_iterator SI = succ_begin(BB), SE = succ_end(BB); SI != SE; SI++) {
           
-          dfva* succDfvaInstance = BBMap[*SI];
-          
+          SmallBitVector meetExpression = getSBVForExpression(beta, *SI);
+
           if(first) {
            first = false;
-           meetOverSucc = *(*succDfvaInstance)[in];
+           meetOverSucc = meetExpression;
           }
           else {
             if(meetOp)
-              meetOverSucc &= *(*succDfvaInstance)[in];
+              meetOverSucc &= meetExpression;
             else
-              meetOverSucc |= *(*succDfvaInstance)[in];
+              meetOverSucc |= meetExpression;
           }
         }
    
@@ -461,11 +478,11 @@ void LCM::callFramework(uint32_t out, uint32_t in, std::vector<uint32_t> alpha, 
           meetOverSucc = initVector;
 
         // 1st data flow eq. 'Out' as a function of 'In'
-        *(outVector) = meetOverSucc; 
+        *(outVector) = getSBVForExpression(alpha, BB) | meetOverSucc; 
 
         SmallBitVector oldInVector = *(inVector);
         // 2nd data flow eq. 'In' as a function of 'Out'
-        *(inVector) = getSBVForExpression(alpha, BB) | (*(outVector) & getSBVForExpression(beta, BB));  
+        *(inVector) = getSBVForExpression(gamma, BB);
         SmallBitVector newInVector = *(inVector);
         if(oldInVector != newInVector)
           Changed = true;
@@ -475,23 +492,25 @@ void LCM::callFramework(uint32_t out, uint32_t in, std::vector<uint32_t> alpha, 
   }
 }
 
-// This function calculates the OPT and REDN SmallBitVectors for each Basic Block
-void LCM::calculateOptAndRedn() {
+// This function calculates the INSERT and REPLACE SmallBitVector for each Basic Block
+void LCM::calculateInsertReplace() {
   
   dfva* dfvaInstance;
   for (Function::iterator BB = Func->begin(), E = Func->end(); BB != E; ++BB) {
     dfvaInstance = BBMap[BB];
 
-    // eq. for OPT
-    *(*dfvaInstance)[OPT] = *(*dfvaInstance)[LATESTIN] & ~(*(*dfvaInstance)[ISOLOUT]);
+    // eq. for INSERT
+    *(*dfvaInstance)[INSERTIN] = *(*dfvaInstance)[LATESTIN] & ~(*(*dfvaInstance)[ISOLIN]);
+    *(*dfvaInstance)[INSERTOUT] = *(*dfvaInstance)[LATESTOUT] & ~(*(*dfvaInstance)[ISOLOUT]);
 
-    // eq. for REDN
-    *(*dfvaInstance)[REDN] = *(*dfvaInstance)[ANTLOC] & ~(*(*dfvaInstance)[LATESTIN] & *(*dfvaInstance)[ISOLOUT]);
+    // eq. for REPLACE
+    *(*dfvaInstance)[REPLACEIN] = *(*dfvaInstance)[ANTLOC] & ~(*(*dfvaInstance)[LATESTIN] & *(*dfvaInstance)[ISOLIN]);
+    *(*dfvaInstance)[REPLACEOUT] = *(*dfvaInstance)[XCOMP] & ~(*(*dfvaInstance)[LATESTOUT] & *(*dfvaInstance)[ISOLOUT]);
   }
 }
 
-// This function calculates the LATESTIN SmallBitVector for each Basic Block
-void LCM::calculateLatestIn() {
+// This function calculates the LATESTIN and LATESTOUT SmallBitVector for each Basic Block
+void LCM::calculateLatest() {
 
   dfva* dfvaInstance;
   for (Function::iterator BB = Func->begin(), E = Func->end(); BB != E; ++BB) {
@@ -507,17 +526,52 @@ void LCM::calculateLatestIn() {
           
       if(first) {
         first = false;
-        meetOverSucc = *(*succDfvaInstance)[DELAYIN];
+        meetOverSucc = ~(*(*succDfvaInstance)[DELAYIN]);
       }
       else 
-        meetOverSucc &= *(*succDfvaInstance)[DELAYIN];
+        meetOverSucc |= ~(*(*succDfvaInstance)[DELAYIN]);
     }
 
     // eq. for LATESTIN
-    *(*dfvaInstance)[LATESTIN] = *(*dfvaInstance)[DELAYIN] & (*(*dfvaInstance)[ANTLOC] | ~meetOverSucc);
+    *(*dfvaInstance)[LATESTIN] = *(*dfvaInstance)[DELAYIN] & *(*dfvaInstance)[ANTLOC];
+
+    // eq. for LATESTOUT
+    *(*dfvaInstance)[LATESTOUT] = *(*dfvaInstance)[DELAYOUT] & (*(*dfvaInstance)[XCOMP] | meetOverSucc);
   }
 }
 
+// This function calculates the EARLIESTIN and EARLIESTOUT SmallBitVector for each Basic Block
+void LCM::calculateEarliest() {
+
+  dfva* dfvaInstance;
+  for (Function::iterator BB = Func->begin(), E = Func->end(); BB != E; ++BB) {
+    dfvaInstance = BBMap[BB];
+
+    bool first = true;
+    SmallBitVector meetOverPreds(bitVectorWidth, false);
+
+    // go over predecessors and take a meet
+    for(pred_iterator PI = pred_begin(BB), PE = pred_end(BB); PI!=PE; ++PI) {
+
+      dfva* predDfvaInstance = BBMap[*PI];
+      SmallBitVector meetExpression = *(*predDfvaInstance)[AVAILOUT] | *(*predDfvaInstance)[ANTOUT];
+      meetExpression = ~meetExpression;
+
+      if(first) {
+        first = false;
+        meetOverPreds = meetExpression;
+      }
+      else
+        meetOverPreds &= meetExpression;
+    }
+
+    // eq. for EARLIESTIN
+    *(*dfvaInstance)[EARLIN] = *(*dfvaInstance)[ANTIN] & meetOverPreds;
+
+    // eq. for EARLIESTOUT
+    *(*dfvaInstance)[EARLOUT] = *(*dfvaInstance)[ANTOUT] & ~(*(*dfvaInstance)[TRANSP]);
+  }
+}
 
 // This function calls the data-flow framework with differnt 
 // initializations for different properties
@@ -526,41 +580,67 @@ void LCM::performGlobalDFA() {
   std::vector<uint32_t> alpha, beta, gamma;
 
   // -- ANTICIPATABLE
-  alpha.push_back(ANTLOC);
-  beta.push_back(TRANSP);
+  alpha.push_back(XCOMP);
+  beta.push_back(ANTIN);
+  gamma.push_back(TRANSP);
+  gamma.push_back(1);
+  gamma.push_back(ANTOUT);
+  gamma.push_back(0);
+  gamma.push_back(ANTLOC);
   callFramework(ANTOUT, ANTIN, alpha, beta, gamma, 1, 0, 0);
   alpha.clear();
   beta.clear();
+  gamma.clear();
 
-  // -- EARLIEST
-  alpha.push_back(TOTALBITVECTORS + TRANSP);
-  beta.push_back(TOTALBITVECTORS + ANTIN);
-  callFramework(EARLOUT, EARLIN, alpha, beta, gamma, 0, 1, 1);
-  alpha.clear();
-  beta.clear();
-
-  // -- DELAY
-  beta.push_back(TOTALBITVECTORS + ANTLOC);
-  gamma.push_back(ANTIN);
+  // -- AVAILABLE
+  beta.push_back(XCOMP);
+  beta.push_back(0);
+  beta.push_back(AVAILOUT);
+  gamma.push_back(ANTLOC);
+  gamma.push_back(0);
+  gamma.push_back(AVAILIN);
   gamma.push_back(1);
-  gamma.push_back(EARLIN);
-  callFramework(DELAYOUT, DELAYIN, alpha, beta, gamma, 1, 0, 1);
+  gamma.push_back(TRANSP);
+  callFramework(AVAILOUT, AVAILIN, alpha, beta, gamma, 1, 0, 1);
   beta.clear();
   gamma.clear();
 
-  // LATESTIN does not fit into the data-flow framework. It is computed in a
-  // separate function
-  calculateLatestIn();
+  // EARLIEST is not DATA-FLOW!
+  calculateEarliest();
 
-  // -- ISOLATEDNESS
-  alpha.push_back(LATESTIN);
-  beta.push_back(TOTALBITVECTORS + ANTLOC);
-  callFramework(ISOLOUT, ISOLIN, alpha, beta, gamma, 1, 0, 0);
+  // -- DELAY
+  alpha.push_back(EARLIN);
+  beta.push_back(TOTALBITVECTORS + XCOMP);
+  beta.push_back(1);
+  beta.push_back(DELAYOUT);
+  gamma.push_back(DELAYIN);
+  gamma.push_back(1);
+  gamma.push_back(TOTALBITVECTORS + ANTLOC);
+  gamma.push_back(0);
+  gamma.push_back(EARLOUT);
+  callFramework(DELAYOUT, DELAYIN, alpha, beta, gamma, 1, 0, 1);
   alpha.clear();
   beta.clear();
+  gamma.clear();
 
-  // calculating optimal and redundant points
-  calculateOptAndRedn();
+  // LATEST is not DATA-FLOW!
+  calculateLatest();
+
+  // -- ISOLATEDNESS
+  beta.push_back(TOTALBITVECTORS + ANTLOC);
+  beta.push_back(1);
+  beta.push_back(ISOLIN);
+  beta.push_back(0);
+  beta.push_back(EARLIN);
+  gamma.push_back(EARLOUT);
+  gamma.push_back(0);
+  gamma.push_back(ISOLOUT);
+  callFramework(ISOLOUT, ISOLIN, alpha, beta, gamma, 1, 1, 0);
+  beta.clear();
+  gamma.clear();
+
+  // calculating INSERT and REPLACE positions
+  calculateInsertReplace();
 }
 
 void LCM::dumpSmallBitVector(SmallBitVector* BV) {
@@ -621,8 +701,32 @@ void LCM::printFlowEquations() {
     dfvaInstance = BBMap[BB];
     errs() << *BB << "\n";
     errs() << "-----\n";
-    for(uint32_t i = 0; i < TOTALBITVECTORS; i++) 
+    for(uint32_t i = 0; i < TOTALBITVECTORS; i++){
+      
+      switch(i) {
+        case(ANTLOC) : errs() << " ANTLOC "; break;
+        case(TRANSP) : errs() << " TRANSP "; break;
+        case(XCOMP) : errs() << " XCOMP "; break;
+        case(ANTIN) : errs() << " ANTIN "; break;
+        case(ANTOUT) : errs() << " ANTOUT "; break;
+        case(AVAILIN) : errs() << " AVAILIN "; break;
+        case(AVAILOUT) : errs() << " AVAILOUT "; break;
+        case(EARLIN) : errs() << " EARLIN "; break;
+        case(EARLOUT) : errs() << " EARLOUT "; break;
+        case(DELAYIN) : errs() << " DELAYIN "; break;
+        case(DELAYOUT) : errs() << " DELAYOUT "; break;
+        case(LATESTIN) : errs() << " LATESTIN "; break;
+        case(LATESTOUT) : errs() << " LATESTOUT "; break;
+        case(ISOLIN) : errs() << " ISOLIN "; break;
+        case(ISOLOUT) : errs() << " ISOLOUT "; break;
+        case(INSERTIN) : errs() << " INSERTIN "; break;
+        case(INSERTOUT) : errs() << " INSERTOUT "; break;
+        case(REPLACEIN) : errs() << " REPLACEIN "; break;
+        case(REPLACEOUT) : errs() << " REPLACEOUT "; break;
+      }
+      
       dumpSmallBitVector((*dfvaInstance)[i]);
+    }
     errs() << "-----\n"; 
   }
 }
