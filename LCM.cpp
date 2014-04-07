@@ -260,7 +260,7 @@ SmallBitVector LCM::calculateXcomp(BasicBlock* BB)
 {
   SmallBitVector returnValue(bitVectorWidth, false);
 
-  /*for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; ++I) {
+  for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; ++I) {
     Instruction* BBI = I;
     uint32_t  VI  = rpo->getBitVectorPosition(BBI);  
     if(VI >= bitVectorWidth) 
@@ -273,12 +273,15 @@ SmallBitVector LCM::calculateXcomp(BasicBlock* BB)
     dbgs() << "\tLeader Instruction: " << *LI << " \n";
 
     for (User::op_iterator OP = LI->op_begin(), E = LI->op_end(); OP != E; ++OP) {
-      if(Instruction *Ins = dyn_cast<Instruction>(OP)) {
-
-  }*/
-
-
-
+      if(Instruction *operandIns = dyn_cast<Instruction>(OP)) {
+        if(BB == operandIns->getParent()) {
+          returnValue[VI] = true;
+          assert(BBI == LI && "If XCOMP(BB) is true for a value V, then V must be its own leader");
+          break;
+        }
+      }
+    }
+  }
 
   return returnValue;
 }
