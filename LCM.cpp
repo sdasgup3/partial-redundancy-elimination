@@ -16,6 +16,7 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/Constants.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Debug.h"
@@ -99,6 +100,7 @@ namespace {
       SmallBitVector getSBVForExpression(std::vector<uint32_t> input, BasicBlock* BB);
       SmallBitVector getSBVForElement(uint32_t num, BasicBlock* BB);
       void printFlowEquations();
+      void performLocalCSE();
 
       SmallBitVector calculateAntloc(BasicBlock*);
       SmallBitVector calculateTrans(BasicBlock*);
@@ -131,11 +133,50 @@ bool LCM::runOnFunction(Function &F)
     return Changed;
   }
   
+  performLocalCSE();
+
   performDFA();
   releaseMemory();
 
   // TODO: change return value
   return Changed;
+}
+
+/*******************************************************************
+ * Function :   performLocalCSE
+ * Purpose  :   To do local CSE (on each BB)
+********************************************************************/
+void LCM::performLocalCSE() 
+{
+  for (Function::iterator BI = Func->begin(), E = Func->end(); BI != E; ++BI) {
+    BasicBlock* BB = BI;
+    #ifdef MYDEBUG    
+    dbgs() << *BB << "\n";
+    #endif 
+    for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; ++I) {
+      Instruction* BBI = I;
+      #ifdef MYDEBUG    
+      dbgs() << "\tInstruction: " << *BBI << " \n";
+      #endif 
+      SmallVector<Value*, 8> equalValues;
+      rpo->getEqualValues(I, equalValues);
+
+      for (unsigned j = 0, e = equalValues.size(); j != e;) {
+        Instruction* EQI = dyn_cast<Instruction>(equalValues[j]);
+        if(BBI == EQI) {
+          j++;
+          continue;
+        }
+        if(BB == EQI->getParent()) {
+          j++;
+          EQI->replaceAllUsesWith(BBI);
+          EQI->eraseFromParent();
+        } else {
+          ++j;
+        }
+      }
+    }
+  }
 }
 
 /*******************************************************************
