@@ -416,10 +416,21 @@ void RPO::handleSpecialCases() {
       Instruction* OldInst = &*I;
       ++I;
       OldInst->eraseFromParent();
+      
+      // since we are deleting the instruction, remove it from the
+      // valueNumbering table and the leaderBoard (if present)
+      if(getLeader(OldInst) == OldInst)
+      {
+        uint32_t vnInst = VT.lookup(OldInst);
+        VT.leaderBoard.erase(vnInst);
+      }
+      VT.erase(OldInst);
+
       continue;
     }
    }
 
+   // similar structure as above case
    if(ICmpInst *Cmp = dyn_cast<ICmpInst>(&*I)) {
     uint32_t vn1 = VT.lookup(I->getOperand(0));
     uint32_t vn2 = VT.lookup(I->getOperand(1));
@@ -430,6 +441,14 @@ void RPO::handleSpecialCases() {
         Instruction* OldInst = &*I;
         ++I;
         OldInst->eraseFromParent();
+
+        if(getLeader(OldInst) == OldInst)
+        {
+          uint32_t vnInst = VT.lookup(OldInst);
+          VT.leaderBoard.erase(vnInst);
+        }
+        VT.erase(OldInst);
+
         continue;
       }
     }
@@ -485,12 +504,20 @@ Value* RPO::getLeader(Value* V) {
 
   SmallVector<Value*, 8> equalValues;
   getEqualValues(V, equalValues);
-  assert(equalValues.size() != 1 && "Request for leader of Value which only has a single occurence in the function");
   
   uint32_t vn = VT.lookup(V);
   return VT.leaderBoard[vn];
 }
 
+std::vector<Value*> RPO::getAllLeaders(){
+  
+  std::vector<Value*> allLeaderList;
+  for (DenseMap<uint32_t, Value*>::const_iterator I = VT.leaderBoard.begin(), E = VT.leaderBoard.end(); I != E; ++I)
+    allLeaderList.push_back(I->second);
+  
+  return allLeaderList;
+}
+ 
 std::vector<std::pair<uint32_t, uint32_t> > RPO::getRepeatedValues() {
   
   std::vector<std::pair<uint32_t, uint32_t> > valueCountVector;

@@ -172,6 +172,9 @@ class RPO {
     // dominate the input Value!
     Value* getLeader(Value *V);
 
+    // List of all leaders
+    std::vector<Value*> getAllLeaders();
+
     // this function returns a vector of pair. A pair is for a Value which 
     // occurs more than once in the function. The count of this vector gives 
     // the smallest size of the bitvector needed for the data flow equations. 
