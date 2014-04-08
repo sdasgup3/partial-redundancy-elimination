@@ -604,7 +604,7 @@ void LCM::calculateEarliest() {
     dfvaInstance = BBMap[BB];
 
     bool first = true;
-    SmallBitVector meetOverPreds(bitVectorWidth, false);
+    SmallBitVector meetOverPreds(bitVectorWidth, true);
 
     // go over predecessors and take a meet
     for(pred_iterator PI = pred_begin(BB), PE = pred_end(BB); PI!=PE; ++PI) {
