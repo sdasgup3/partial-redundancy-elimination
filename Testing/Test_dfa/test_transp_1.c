@@ -4,12 +4,10 @@ int func(int a, int b)
 
     if(x >= 0 ) {
       x = a+b;
-      y = a-b;
-      z = x + y;
     } else {
-      w = x - y;
+      x  = a- b;
     }
-    z = x + y;
+    z = a+ b;
 
 
 

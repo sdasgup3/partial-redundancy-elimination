@@ -7,7 +7,9 @@ int func(int a, int b)
       y = a-b;
       z = x + y;
     } else {
-      w = x - y;
+      x = a+b;
+      y = a-b;
+      z = x + y;
     }
     z = x + y;
 

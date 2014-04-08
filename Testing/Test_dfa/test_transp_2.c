@@ -2,9 +2,9 @@ int func(int a, int b)
 {
   int x,y,z,c,w;
 
+    x = a+b;
+    y = a-b;
     if(x >= 0 ) {
-      x = a+b;
-      y = a-b;
       z = x + y;
     } else {
       w = x - y;
