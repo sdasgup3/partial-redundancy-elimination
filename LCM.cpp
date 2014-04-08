@@ -151,12 +151,12 @@ void LCM::performLocalCSE()
   for (Function::iterator BI = Func->begin(), E = Func->end(); BI != E; ++BI) {
     BasicBlock* BB = BI;
     #ifdef MYDEBUG    
-    dbgs() << *BB << "\n";
+    //dbgs() << *BB << "\n";
     #endif 
     for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; ++I) {
       Instruction* BBI = I;
       #ifdef MYDEBUG    
-      dbgs() << "\tInstruction: " << *BBI << " \n";
+      //dbgs() << "\tInstruction: " << *BBI << " \n";
       #endif 
       SmallVector<Value*, 8> equalValues;
       rpo->getEqualValues(I, equalValues);
@@ -239,8 +239,8 @@ void LCM::performConstDFA()
   for (Function::iterator BB = Func->begin(), E = Func->end(); BB != E; ++BB) {
     dfvaInstance = BBMap[BB];
 
-    *((*dfvaInstance)[ANTLOC]) = calculateAntloc(BB);
     *((*dfvaInstance)[TRANSP]) = calculateTrans(BB);
+    *((*dfvaInstance)[ANTLOC]) = calculateAntloc(BB);
     *((*dfvaInstance)[XCOMP]) = calculateXcomp(BB);
     /*
     if((++k)%3)
@@ -265,12 +265,12 @@ SmallBitVector LCM::calculateXcomp(BasicBlock* BB)
     uint32_t  VI  = rpo->getBitVectorPosition(BBI);  
     if(VI >= bitVectorWidth) 
       continue;
-    dbgs() << "\tInstruction: " << *BBI << " Value " << VI  << " \n";
+    //dbgs() << "\tInstruction: " << *BBI << " Value " << VI  << " \n";
     Value* V = rpo->getLeader(BBI);
     Instruction* LI =  cast<Instruction>(V);
     
     assert(LI != NULL && "getLeader() returned NULL");    
-    dbgs() << "\tLeader Instruction: " << *LI << " \n";
+    //dbgs() << "\tLeader Instruction: " << *LI << " \n";
 
     for (User::op_iterator OP = LI->op_begin(), E = LI->op_end(); OP != E; ++OP) {
       if(Instruction *operandIns = dyn_cast<Instruction>(OP)) {
@@ -288,11 +288,13 @@ SmallBitVector LCM::calculateXcomp(BasicBlock* BB)
   
 /*******************************************************************
  * Function :   calculateTrans
- * Purpose  :   Calculate the Trans 
+ * Purpose  :   if any operand of the leader is defined in this BB 
+ *              then TRANSP(BB) is false for the corresponding 
+ *              value
 ********************************************************************/
 SmallBitVector LCM::calculateTrans(BasicBlock* BB) {
 
-  dbgs() << "Finding Trans BB\n";
+  //dbgs() << "Finding Trans BB\n";
 
   SmallBitVector returnValue(bitVectorWidth, true);
   std::vector<Value*> allLeaders = rpo->getAllLeaders();
@@ -301,16 +303,16 @@ SmallBitVector LCM::calculateTrans(BasicBlock* BB) {
     
     Instruction* I = cast<Instruction>(allLeaders[i]);
     uint32_t VI = rpo->getBitVectorPosition(I);
+    //dbgs() << "\tLeader Instruction: " << *I << "Value " << VI << " size " << bitVectorWidth<<" \n";
     if(VI >= bitVectorWidth) 
       continue;
     
     assert(rpo->getLeader(I) == I && "This instruction should have been its own leader; we screwed up somewhere");
     
-    // if any operand of the leader is defined in this BB then TRANSP(BB) is
-    // false for the corresponding value
     for (User::op_iterator OP = I->op_begin(), E = I->op_end(); OP != E; ++OP) {
     
       if(Instruction *operandIns = dyn_cast<Instruction>(OP)) { 
+        //dbgs() << "\toperand Instruction: " << operandIns << "\n";
         if(BB == operandIns->getParent()) {
           returnValue[VI] = false;
           break;
@@ -322,74 +324,30 @@ SmallBitVector LCM::calculateTrans(BasicBlock* BB) {
   return returnValue;
 }
 
-/*SmallBitVector LCM::calculateTrans(BasicBlock* BB)
-{
-  dbgs() << "Finding Trans BB\n";
-  //BB->printAsOperand(dbgs(),false);
-
-  SmallBitVector returnValue(bitVectorWidth, true);
-
-  for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; ++I) {
-    Instruction* BBI = I;
-    uint32_t  VI  = rpo->getBitVectorPosition(BBI);  
-    if(VI >= bitVectorWidth) 
-      continue;
-    dbgs() << "\tInstruction: " << *BBI << " Value " << VI  << " \n";
-    Value* V = rpo->getLeader(BBI);
-    Instruction* LI =  cast<Instruction>(V);
-    
-    assert(LI != NULL && "getLeader() returned NULL");    
-    dbgs() << "\tLeader Instruction: " << *LI << " \n";
-    
-    bool isAnyOpDef = false;
-    for (User::op_iterator OP = LI->op_begin(), E = LI->op_end(); OP != E; ++OP) {
-      if(Instruction *Ins = dyn_cast<Instruction>(OP)) {
-        isAnyOpDef = true;
-        if(BB != Ins->getParent()) {
-          dbgs() << " Transparent \n";
-          returnValue[VI] = 0;
-        }
-      }
-    }
-    if(false == isAnyOpDef) {
-      dbgs() << " Transparent \n";
-      returnValue[VI] = 0;
-    }
-  }
-  return returnValue;
-}*/
-
 /*******************************************************************
  * Function :   calculateAntloc
- * Purpose  :   Calculate the Antloc 
+ * Purpose  :   defined(B) - !(transp(B))
+ *              defined(B) = {v | v is generated in B}
 ********************************************************************/
 SmallBitVector LCM::calculateAntloc(BasicBlock* BB)
 {
-  dbgs() << "Finding Antloc BB\n";
-  //BB->printAsOperand(dbgs(),false);
+  //dbgs() << "\nFinding Antloc BB\n";
+  BB->printAsOperand(dbgs(),false);
+  dfva* dfvaInstance = BBMap[BB];
+  SmallBitVector transp = *((*dfvaInstance)[TRANSP]) ;
 
   SmallBitVector returnValue(bitVectorWidth, false);
 
   for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; ++I) {
     Instruction* BBI = I;
     uint32_t  VI  = rpo->getBitVectorPosition(BBI);  
+    //dbgs() << "\tInstruction-: " << *BBI << " Value " << VI << " Size " << bitVectorWidth<< " \n";
     if(VI >= bitVectorWidth) 
       continue;
-    dbgs() << "\tInstruction: " << *BBI << " Value " << VI << "Size " << bitVectorWidth<< " \n";
-    bool isAnyOpDef = false;
-    for (User::op_iterator OP = BBI->op_begin(), E = BBI->op_end(); OP != E; ++OP) {
-      if(Instruction *Ins = dyn_cast<Instruction>(OP)) {
-        isAnyOpDef = true;
-        dbgs() << *Ins << "\n";
-        if(BB != Ins->getParent()) {
-          dbgs() << " Antloc \n";
-          returnValue[VI] = 1;  
-        }
-      }
-    }
-    if(false == isAnyOpDef) {
-      dbgs() << " Antloc \n";
-      returnValue[VI] = 1;  
+
+    if(true == transp[VI]) {
+      //dbgs() << "\tAntloc \n"; 
+      returnValue[VI] = true;
     }
   }
   return returnValue;
@@ -828,3 +786,40 @@ void LCM::printFlowEquations() {
     errs() << "-----\n"; 
   }
 }
+
+/*SmallBitVector LCM::calculateTrans(BasicBlock* BB)
+{
+  dbgs() << "Finding Trans BB\n";
+  //BB->printAsOperand(dbgs(),false);
+
+  SmallBitVector returnValue(bitVectorWidth, true);
+
+  for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; ++I) {
+    Instruction* BBI = I;
+    uint32_t  VI  = rpo->getBitVectorPosition(BBI);  
+    if(VI >= bitVectorWidth) 
+      continue;
+    dbgs() << "\tInstruction: " << *BBI << " Value " << VI  << " \n";
+    Value* V = rpo->getLeader(BBI);
+    Instruction* LI =  cast<Instruction>(V);
+    
+    assert(LI != NULL && "getLeader() returned NULL");    
+    dbgs() << "\tLeader Instruction: " << *LI << " \n";
+    
+    bool isAnyOpDef = false;
+    for (User::op_iterator OP = LI->op_begin(), E = LI->op_end(); OP != E; ++OP) {
+      if(Instruction *Ins = dyn_cast<Instruction>(OP)) {
+        isAnyOpDef = true;
+        if(BB != Ins->getParent()) {
+          dbgs() << " Transparent \n";
+          returnValue[VI] = 0;
+        }
+      }
+    }
+    if(false == isAnyOpDef) {
+      dbgs() << " Transparent \n";
+      returnValue[VI] = 0;
+    }
+  }
+  return returnValue;
+}*/
