@@ -463,6 +463,9 @@ void RPO::calculateBitVectorPosition() {
   uint32_t k=0;  
   std::vector<std::pair<uint32_t, uint32_t> > repeatedValues = getRepeatedValues();
   
+  if(VT.nextValueNumber-1  > VT.maxValueNumber)
+     VT.maxValueNumber = VT.nextValueNumber-1;
+  
   for(uint32_t i=1; i <= VT.maxValueNumber; i++)
     VNtoBVPos[i] = repeatedValues.size();
 
@@ -473,6 +476,15 @@ void RPO::calculateBitVectorPosition() {
 uint32_t RPO::getBitVectorPosition(Value* V) {
 
   uint32_t vn = getNumberForValue(V);
+  return VNtoBVPos[vn];
+}
+
+uint32_t RPO::getBitVectorPosition(uint32_t vn) {
+
+  SmallVector<Value*, 8> equalValues;
+  getEqualValues(vn, equalValues);
+  assert(equalValues.size() > 1 && "BitVector position is only available for Values which occur more than once");
+
   return VNtoBVPos[vn];
 }
 

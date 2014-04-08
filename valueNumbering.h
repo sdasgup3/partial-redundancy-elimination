@@ -84,7 +84,7 @@ class ValueTable {
     friend class RPO;
 
   public:
-    ValueTable() : nextValueNumber(1) { }
+    ValueTable() : nextValueNumber(1), maxValueNumber(1) { }
     uint32_t computeNumber(Value *V);
     uint32_t lookup(Value *V);
     void add(Value *V, uint32_t num);
@@ -150,6 +150,7 @@ class RPO {
     // function does a hash from Value Number to position in Bit Vector
     void calculateBitVectorPosition();
     uint32_t getBitVectorPosition(Value* V);
+    uint32_t getBitVectorPosition(uint32_t vn);
 
     // print all instructions with their corresponding VN
     void print();

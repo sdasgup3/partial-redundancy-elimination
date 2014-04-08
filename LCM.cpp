@@ -334,7 +334,7 @@ SmallBitVector LCM::calculateAntloc(BasicBlock* BB)
   //dbgs() << "\nFinding Antloc BB\n";
   BB->printAsOperand(dbgs(),false);
   dfva* dfvaInstance = BBMap[BB];
-  SmallBitVector transp = *((*dfvaInstance)[TRANSP]) ;
+  SmallBitVector transp = *(*dfvaInstance)[TRANSP] ;
 
   SmallBitVector returnValue(bitVectorWidth, false);
 
@@ -345,6 +345,7 @@ SmallBitVector LCM::calculateAntloc(BasicBlock* BB)
     if(VI >= bitVectorWidth) 
       continue;
 
+    // ANTLOC = DEFINED - ~TRANSP
     if(true == transp[VI]) {
       //dbgs() << "\tAntloc \n"; 
       returnValue[VI] = true;
@@ -752,13 +753,20 @@ void LCM::releaseMemory() {
 
 void LCM::printFlowEquations() {
   
+
+  // Print VN to BitVectorPosition Map
+  std::vector<std::pair<uint32_t, uint32_t> > repeatedValues = rpo->getRepeatedValues();
+  for(std::vector<std::pair<uint32_t, uint32_t> >::iterator I = repeatedValues.begin(), E = repeatedValues.end(); I!=E; ++I) 
+    errs() << "[VN]:"<< I->first << "\t[POS]:" << rpo->getBitVectorPosition(I->first) << "\n";
+
+  // Print the bitVectors for each BB
   dfva* dfvaInstance;
   for (Function::iterator BB = Func->begin(), E = Func->end(); BB != E; ++BB) {
     dfvaInstance = BBMap[BB];
     errs() << *BB << "\n";
     errs() << "-----\n";
     for(uint32_t i = 0; i < TOTALBITVECTORS; i++){
-      
+  
       switch(i) {
         case(ANTLOC) : errs() << " ANTLOC "; break;
         case(TRANSP) : errs() << " TRANSP "; break;
