@@ -93,7 +93,7 @@ namespace {
       void performConstDFA();
       void performGlobalDFA();
       
-      void callFramework(uint32_t out, uint32_t in, std::vector<uint32_t> alpha, std::vector<uint32_t> beta, std::vector<uint32_t> gamma, bool meetOp, bool init, bool direction);
+      void callFramework(uint32_t out, uint32_t in, std::vector<uint32_t> alpha, std::vector<uint32_t> beta, std::vector<uint32_t> gamma, bool meetOp, bool bottom, bool top, bool direction);
       void calculateEarliest();
       void calculateLatest();
       void calculateInsertReplace();
@@ -129,7 +129,7 @@ bool LCM::runOnFunction(Function &F)
   bitVectorWidth = rpo->getRepeatedValues().size();
 
   if(0 == bitVectorWidth) {
-    dbgs() << "DNothing to do\n" ; 
+    dbgs() << "Nothing to do\n" ; 
     return Changed;
   }
   
@@ -417,7 +417,7 @@ SmallBitVector LCM::getSBVForExpression(std::vector<uint32_t> input, BasicBlock*
 //  init : 0 
 //  direction : 1 (fwd.)
 //
-void LCM::callFramework(uint32_t out, uint32_t in, std::vector<uint32_t> alpha, std::vector<uint32_t> beta, std::vector<uint32_t> gamma, bool meetOp, bool init, bool direction) {
+void LCM::callFramework(uint32_t out, uint32_t in, std::vector<uint32_t> alpha, std::vector<uint32_t> beta, std::vector<uint32_t> gamma, bool meetOp, bool bottom, bool top, bool direction) {
 
   bool Changed = false;
   SmallBitVector allTrue(bitVectorWidth, true);
@@ -425,6 +425,12 @@ void LCM::callFramework(uint32_t out, uint32_t in, std::vector<uint32_t> alpha, 
                                        
   // direction == 1 : Forward Data Flow
   if(direction) {
+
+    // initialize OUT set of each basic block to top
+    for (Function::iterator BB = Func->begin(), E = Func->end(); BB != E; ++BB) {
+      dfva* dfvaInstance = BBMap[BB];
+      *(*dfvaInstance)[out] = (top ? allTrue : allFalse);
+    }
 
     do {
       Changed = false;
@@ -437,7 +443,7 @@ void LCM::callFramework(uint32_t out, uint32_t in, std::vector<uint32_t> alpha, 
         SmallBitVector* inVector = (*dfvaInstance)[in];
 
         // bitVector for in[B] of start node
-        SmallBitVector& initVector = (init ? allTrue : allFalse);
+        SmallBitVector& initVector = (bottom ? allTrue : allFalse);
 
         // this vector would be initialized accordingly later by the 
         // first predecessor while taking a meet over predecessors
@@ -482,6 +488,12 @@ void LCM::callFramework(uint32_t out, uint32_t in, std::vector<uint32_t> alpha, 
   // Backward data-flow analysis
   else {
     
+    // initialize IN set of each basic block to top
+    for (Function::iterator BB = Func->begin(), E = Func->end(); BB != E; ++BB) {
+      dfva* dfvaInstance = BBMap[BB];
+      *(*dfvaInstance)[in] = (top ? allTrue : allFalse);
+    }
+
     do {
       Changed = false;
       
@@ -492,7 +504,7 @@ void LCM::callFramework(uint32_t out, uint32_t in, std::vector<uint32_t> alpha, 
         SmallBitVector* inVector = (*dfvaInstance)[in];
 
         // bitVector for out[B] of exit node
-        SmallBitVector& initVector = (init ? allTrue : allFalse);
+        SmallBitVector& initVector = (bottom ? allTrue : allFalse);
 
         // this vector would be initialized accordingly later by the 
         // first successor while taking a meet over successors
@@ -630,7 +642,7 @@ void LCM::performGlobalDFA() {
   gamma.push_back(ANTOUT);
   gamma.push_back(0);
   gamma.push_back(ANTLOC);
-  callFramework(ANTOUT, ANTIN, alpha, beta, gamma, 1, 0, 0);
+  callFramework(ANTOUT, ANTIN, alpha, beta, gamma, 1, 0, 1, 0);
   alpha.clear();
   beta.clear();
   gamma.clear();
@@ -644,7 +656,7 @@ void LCM::performGlobalDFA() {
   gamma.push_back(AVAILIN);
   gamma.push_back(1);
   gamma.push_back(TRANSP);
-  callFramework(AVAILOUT, AVAILIN, alpha, beta, gamma, 1, 0, 1);
+  callFramework(AVAILOUT, AVAILIN, alpha, beta, gamma, 1, 0, 1, 1);
   beta.clear();
   gamma.clear();
 
@@ -661,7 +673,7 @@ void LCM::performGlobalDFA() {
   gamma.push_back(TOTALBITVECTORS + ANTLOC);
   gamma.push_back(0);
   gamma.push_back(EARLOUT);
-  callFramework(DELAYOUT, DELAYIN, alpha, beta, gamma, 1, 0, 1);
+  callFramework(DELAYOUT, DELAYIN, alpha, beta, gamma, 1, 0, 1, 1);
   alpha.clear();
   beta.clear();
   gamma.clear();
@@ -678,7 +690,7 @@ void LCM::performGlobalDFA() {
   gamma.push_back(EARLOUT);
   gamma.push_back(0);
   gamma.push_back(ISOLOUT);
-  callFramework(ISOLOUT, ISOLIN, alpha, beta, gamma, 1, 1, 0);
+  callFramework(ISOLOUT, ISOLIN, alpha, beta, gamma, 1, 1, 1, 0);
   beta.clear();
   gamma.clear();
 
