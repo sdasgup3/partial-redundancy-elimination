@@ -226,29 +226,13 @@ void LCM::performConstDFA()
 
   SmallBitVector random(bitVectorWidth, false);
 
-  /*
-  for(unsigned VI=0; VI < bitVectorWidth; VI++) 
-    if(VI%2)    
-      random[VI] = true;
-  */
-
-
   dfva* dfvaInstance;
-  //uint32_t k=0;
-  //rpo->print();
   for (Function::iterator BB = Func->begin(), E = Func->end(); BB != E; ++BB) {
     dfvaInstance = BBMap[BB];
 
     *((*dfvaInstance)[TRANSP]) = calculateTrans(BB);
     *((*dfvaInstance)[ANTLOC]) = calculateAntloc(BB);
     *((*dfvaInstance)[XCOMP]) = calculateXcomp(BB);
-    /*
-    if((++k)%3)
-      *((*dfvaInstance)[ANTLOC]) = random;
-
-    if(k%2)
-      *((*dfvaInstance)[TRANSP]) = random;
-    */
   }
 }
 
