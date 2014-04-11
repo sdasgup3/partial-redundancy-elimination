@@ -93,6 +93,7 @@ class ValueTable {
     void erase(Value *v);
     unsigned size();
     void verifyRemoved(const Value *) const;
+    uint32_t isSimplePHI(PHINode* PN);
 };
 
 

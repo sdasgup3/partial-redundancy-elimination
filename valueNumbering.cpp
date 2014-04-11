@@ -6,11 +6,10 @@
 #include "llvm/Pass.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/IR/InstIterator.h"
+#include "llvm/Support/InstIterator.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/PostOrderIterator.h"
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/IR/Dominators.h"
+#include "llvm/Analysis/Dominators.h"
 #include "llvm/Support/Debug.h"
 #include "valueNumbering.h"
 
@@ -318,10 +317,21 @@
        exp = create_expression(cast<GetElementPtrInst>(I));
        break;
      default:
+       
+       // for a PHI node, if all the incoming expressions have the same value
+       // number, then assign the same value number to the PHI node as well
+       if (PHINode *PN = dyn_cast<PHINode>(I)) { 
+         uint32_t vn = isSimplePHI(PN);
+         if (vn) {
+           valueNumbering[V] = vn;
+           return vn;
+         }
+       }
+       
        valueNumbering[V] = nextValueNumber;
        return nextValueNumber++;
    }
- 
+
    uint32_t& e = expressionNumbering[exp];
    if (!e) {
      e = nextValueNumber++;
@@ -373,6 +383,32 @@
    for (DenseMap<Value*, uint32_t>::const_iterator I = valueNumbering.begin(), E = valueNumbering.end(); I != E; ++I)
      assert(I->first != V && "Inst still occurs in value numbering map!");
  }
+ 
+ // isSimplePHI - Check if the value numbers of all the incoming expression to a
+ // PHI node are the same. If true, return that value number
+ uint32_t ValueTable::isSimplePHI(PHINode* PN) {
+   bool first = true;
+   bool sameIncomingVN = true;
+   uint32_t phiVN;
+    
+   for (unsigned i = 0, e = PN->getNumIncomingValues(); i != e; ++i) {
+     if(first) {
+       phiVN = lookup(PN->getIncomingValue(i));
+       first = false;
+       continue;
+     }
+
+     if(lookup(PN->getIncomingValue(i)) != phiVN) {
+       sameIncomingVN = false;
+       break;
+     }
+   }
+    
+   if(!sameIncomingVN)
+     return 0;
+
+   return lookup(PN->getIncomingValue(0));
+ }
 
 //----------------------------------------------------------------------===
 //              RPO external functions    
@@ -406,8 +442,8 @@ void RPO::performVN() {
 void RPO::handleSpecialCases() {
 
   for(inst_iterator I = inst_begin(F), E = inst_end(F); I!=E;) {
-
-   if(I->getOpcode() == Instruction::Or || I->getOpcode() == Instruction::And) {
+   
+    if(I->getOpcode() == Instruction::Or || I->getOpcode() == Instruction::And) {
     uint32_t vn1 = VT.lookup(I->getOperand(0));
     uint32_t vn2 = VT.lookup(I->getOperand(1));
 
