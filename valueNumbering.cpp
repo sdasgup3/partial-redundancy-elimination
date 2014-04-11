@@ -6,10 +6,11 @@
 #include "llvm/Pass.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Support/InstIterator.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/PostOrderIterator.h"
-#include "llvm/Analysis/Dominators.h"
+#include "llvm/ADT/DenseMap.h"
+#include "llvm/IR/Dominators.h"
 #include "llvm/Support/Debug.h"
 #include "valueNumbering.h"
 
@@ -442,8 +443,8 @@ void RPO::performVN() {
 void RPO::handleSpecialCases() {
 
   for(inst_iterator I = inst_begin(F), E = inst_end(F); I!=E;) {
-   
-    if(I->getOpcode() == Instruction::Or || I->getOpcode() == Instruction::And) {
+    
+   if(I->getOpcode() == Instruction::Or || I->getOpcode() == Instruction::And) {
     uint32_t vn1 = VT.lookup(I->getOperand(0));
     uint32_t vn2 = VT.lookup(I->getOperand(1));
 
