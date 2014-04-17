@@ -5,6 +5,7 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/Pass.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/ADT/Statistic.h"
@@ -443,8 +444,8 @@ void RPO::performVN() {
 void RPO::handleSpecialCases() {
 
   for(inst_iterator I = inst_begin(F), E = inst_end(F); I!=E;) {
-    
-   if(I->getOpcode() == Instruction::Or || I->getOpcode() == Instruction::And) {
+   
+    if(I->getOpcode() == Instruction::Or || I->getOpcode() == Instruction::And) {
     uint32_t vn1 = VT.lookup(I->getOperand(0));
     uint32_t vn2 = VT.lookup(I->getOperand(1));
 
@@ -520,7 +521,13 @@ uint32_t RPO::getBitVectorPosition(uint32_t vn) {
 
   SmallVector<Value*, 8> equalValues;
   getEqualValues(vn, equalValues);
-  assert(equalValues.size() > 1 && "BitVector position is only available for Values which occur more than once");
+
+  if(equalValues.size() == 1) {
+    Instruction* ins = cast<Instruction>(equalValues[0]); 
+    assert(LI->getLoopFor(ins->getParent()) != NULL && "Value-number occurring just once can be allocated a bitvector slot only if it is inside a loop");
+  }
+  else
+    assert(equalValues.size() > 1 && "BitVector position is only available for value-numbers which occur more than once (loops are exempted)");
 
   return VNtoBVPos[vn];
 }
@@ -551,9 +558,6 @@ void RPO::getEqualValues(uint32_t VN, SmallVectorImpl<Value*> &equalValues) {
 
 Value* RPO::getLeader(Value* V) {
 
-  SmallVector<Value*, 8> equalValues;
-  getEqualValues(V, equalValues);
-  
   uint32_t vn = VT.lookup(V);
   return VT.leaderBoard[vn];
 }
@@ -578,7 +582,13 @@ std::vector<std::pair<uint32_t, uint32_t> > RPO::getRepeatedValues() {
     
     if(size > 1)
       valueCountVector.push_back(std::make_pair(I->first, size));
-    
+
+    // In case the value-number occurs only once in the program, but is inside a
+    // loop, we need to allocate space in the bitvector, and do PRE on it. This
+    // is because PRE has to do LICM also
+    else if(LI->getLoopFor(cast<Instruction>(I->second)->getParent()))
+        valueCountVector.push_back(std::make_pair(I->first, 2));
+
     equalValues.clear();
   }
     

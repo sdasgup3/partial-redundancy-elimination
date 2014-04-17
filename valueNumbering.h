@@ -136,12 +136,13 @@ class RPO {
 
   private :
     Function& F;
+    LoopInfo* LI;
     ValueTable VT;
     DenseMap<uint32_t, uint32_t> VNtoBVPos; 
     
   public:
-    RPO(Function &f) : F(f) {}
-    void performVN();
+    RPO(Function &f, LoopInfo* li) : F(f), LI(li) {}
+    void performVN();             
     
     // this function handles the special case when the value number of op1 = op2
     // and the operator is either AND, OR, CMP::EQ, CMP::NE

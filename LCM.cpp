@@ -18,6 +18,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/LLVMContext.h"
+#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/ADT/Statistic.h"
@@ -65,8 +66,9 @@ namespace {
     LCM() : FunctionPass(ID) {}
     bool runOnFunction(Function &F);
     virtual void getAnalysisUsage(AnalysisUsage &AU) const {
-      //AU.addRequired<DominatorTreeWrapperPass>();
       AU.setPreservesCFG();
+      AU.addRequired<LoopInfo>();
+      //AU.addRequired<DominatorTreeWrapperPass>();
       //AU.addPreserved<DominatorTreeWrapperPass>();
       AU.addRequiredID(BreakCriticalEdgesID);
     }
@@ -75,6 +77,7 @@ namespace {
     private:
       Function* Func;
       RPO* rpo;
+      LoopInfo* LI;
 
       // Maps each Basic Block to a vector of SmallBitVectors, each of which
       // represents a property as defined in bitVectors enum 
@@ -121,8 +124,10 @@ static RegisterPass<LCM> X("lcm",
 bool LCM::runOnFunction(Function &F) 
 {
   Func = &F;
+  LI = &getAnalysis<LoopInfo>();
+
   bool Changed = false;
-  rpo = new RPO(F);
+  rpo = new RPO(F,LI);
   rpo->performVN();  
   rpo->print();  
   
@@ -283,7 +288,7 @@ SmallBitVector LCM::calculateTrans(BasicBlock* BB) {
 SmallBitVector LCM::calculateAntloc(BasicBlock* BB)
 {
   //dbgs() << "\nFinding Antloc BB\n";
-  BB->printAsOperand(dbgs(),false);
+  //BB->printAsOperand(dbgs(),false);
   dfva* dfvaInstance = BBMap[BB];
   SmallBitVector transp = *(*dfvaInstance)[TRANSP] ;
 
