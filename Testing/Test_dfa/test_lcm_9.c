@@ -1,9 +1,9 @@
-void func(int a, int b, int c)
+int func(int a, int b, int c)
 {
   int x,y,z,  d;
+  c = a;
     if(x >= 0 ) {
       y = a+b;
-      a=c;
       x=a+b;
     } 
 
@@ -34,7 +34,6 @@ label_5:
 
 label_3:
           z = a+b;
-          a=c;
           goto label_4;
 
 label_4:
@@ -42,5 +41,5 @@ label_4:
           goto label_end;
 
      label_end:     
-    return;
+    return z;
 }

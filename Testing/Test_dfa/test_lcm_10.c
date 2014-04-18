@@ -10,8 +10,9 @@ void func(int a, int b, int c)
     switch (a) {
       case 0:
 label_1:  
+       y  =a+b;
         if(a>b) {
-          y  =a+b;
+          x=c;
           goto label_1;
         }
         goto label_3;
@@ -33,12 +34,12 @@ label_5:
     }
 
 label_3:
-          z = a+b;
+          //z = a+b;
           a=c;
           goto label_4;
 
 label_4:
-          x = a+b;
+          //x = a+b;
           goto label_end;
 
      label_end:     
