@@ -551,7 +551,7 @@ uint32_t RPO::getVNFromBVPos(uint32_t bvPos) {
 void RPO::print() {
 
   for(inst_iterator I = inst_begin(F), E = inst_end(F); I!=E; ++I)
-    errs() << "[DEBUG] " << *I << " [VN - "<<VT.lookup(&*I)<<"]\n";
+    DEBUG(errs() << *I << " [VN - "<<VT.lookup(&*I)<<"]\n");
 }
 
 uint32_t RPO::getNumberForValue(Value *V) {
