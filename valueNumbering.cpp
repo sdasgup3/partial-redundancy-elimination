@@ -532,6 +532,22 @@ uint32_t RPO::getBitVectorPosition(uint32_t vn) {
   return VNtoBVPos[vn];
 }
 
+uint32_t RPO::getVNFromBVPos(uint32_t bvPos) {
+
+  bool match = false;
+  uint32_t returnValue;
+
+  for(DenseMap<uint32_t, uint32_t>::const_iterator I = VNtoBVPos.begin(), E = VNtoBVPos.end(); I!=E; ++I) {
+    if(I->second == bvPos) {
+      assert(!match && "Two different value numbers can not have the same bitVector position");
+      match = true;
+      returnValue = I->first;
+    }
+  }
+
+  return returnValue;
+}
+
 void RPO::print() {
 
   for(inst_iterator I = inst_begin(F), E = inst_end(F); I!=E; ++I)
@@ -559,6 +575,11 @@ void RPO::getEqualValues(uint32_t VN, SmallVectorImpl<Value*> &equalValues) {
 Value* RPO::getLeader(Value* V) {
 
   uint32_t vn = VT.lookup(V);
+  return VT.leaderBoard[vn];
+}
+
+Value* RPO::getLeader(uint32_t vn) {
+
   return VT.leaderBoard[vn];
 }
 

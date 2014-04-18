@@ -153,6 +153,7 @@ class RPO {
     void calculateBitVectorPosition();
     uint32_t getBitVectorPosition(Value* V);
     uint32_t getBitVectorPosition(uint32_t vn);
+    uint32_t getVNFromBVPos(uint32_t bvPos);
 
     // print all instructions with their corresponding VN
     void print();
@@ -174,6 +175,7 @@ class RPO {
     // Also note that the Value returned by this function does NOT necessarily
     // dominate the input Value!
     Value* getLeader(Value *V);
+    Value* getLeader(uint32_t vn);
 
     // List of all leaders
     std::vector<Value*> getAllLeaders();

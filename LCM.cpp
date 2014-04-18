@@ -10,7 +10,7 @@
 //      
 //===----------------------------------------------------------------------===//
 
-#define MYDEBUG 
+//#define MYDEBUG 
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
@@ -72,7 +72,6 @@ namespace {
       //AU.addPreserved<DominatorTreeWrapperPass>();
       AU.addRequiredID(BreakCriticalEdgesID);
     }
-    void releaseMemory();
 
     private:
       Function* Func;
@@ -82,10 +81,16 @@ namespace {
       // Maps each Basic Block to a vector of SmallBitVectors, each of which
       // represents a property as defined in bitVectors enum 
       DenseMap<BasicBlock*, dfva*> BBMap;
-    
+     
+      uint32_t label;
+      std::vector<Instruction*> deadList;
+      
       // Each bitVector is only as wide as the number of values which occur 
       // more than once in the program
       uint32_t bitVectorWidth;
+
+      // holds the new alloca instructions created for INSERT-REPLACE
+      std::vector<AllocaInst*> allocaVector;
 
       // functions 
       void performDFA() ;
@@ -95,6 +100,11 @@ namespace {
       void dumpSmallBitVector(SmallBitVector*);
       void performConstDFA();
       void performGlobalDFA();
+      void changeIR();
+      void setUpInsertReplace();
+      void doInsertReplace(uint32_t vn, BasicBlock* BB, bool insert, bool replace);
+      void doReplace();
+      void cleanUp();
       
       void callFramework(uint32_t out, uint32_t in, std::vector<uint32_t> alpha, std::vector<uint32_t> beta, std::vector<uint32_t> gamma, bool meetOp, bool bottom, bool top, bool direction);
       void calculateEarliest();
@@ -102,6 +112,7 @@ namespace {
       void calculateInsertReplace();
       SmallBitVector getSBVForExpression(std::vector<uint32_t> input, BasicBlock* BB);
       SmallBitVector getSBVForElement(uint32_t num, BasicBlock* BB);
+      Value* getExpressionFromBasicBlock(uint32_t vn, BasicBlock* BB);
       void printFlowEquations();
       void performLocalCSE();
 
@@ -129,9 +140,11 @@ bool LCM::runOnFunction(Function &F)
   bool Changed = false;
   rpo = new RPO(F,LI);
   rpo->performVN();  
-  rpo->print();  
+  //rpo->print();  
   
+  label = 0;
   bitVectorWidth = rpo->getRepeatedValues().size();
+  allocaVector.insert(allocaVector.begin(), bitVectorWidth, NULL);
 
   if(0 == bitVectorWidth) {
     dbgs() << "Nothing to do\n" ; 
@@ -139,9 +152,9 @@ bool LCM::runOnFunction(Function &F)
   }
   
   performLocalCSE();
-
   performDFA();
-  releaseMemory();
+  changeIR();
+  cleanUp();
 
   // TODO: change return value
   return Changed;
@@ -203,7 +216,7 @@ void LCM::performDFA() {
   // This function calls the various data flow equations of LCM
   performGlobalDFA();
 
-  printFlowEquations();
+  //printFlowEquations();
 }
 
 /*******************************************************************
@@ -261,7 +274,7 @@ SmallBitVector LCM::calculateTrans(BasicBlock* BB) {
     uint32_t VI = rpo->getBitVectorPosition(I);
     if(VI >= bitVectorWidth) 
       continue;
-    dbgs() << "\tLeader Instruction: " << *I << "Value " << VI << " size " << bitVectorWidth<<" \n";
+    //dbgs() << "\tLeader Instruction: " << *I << "Value " << VI << " size " << bitVectorWidth<<" \n";
     
     assert(rpo->getLeader(I) == I && "This instruction should have been its own leader; we screwed up somewhere");
     
@@ -399,6 +412,22 @@ SmallBitVector LCM::getSBVForExpression(std::vector<uint32_t> input, BasicBlock*
     }
   }
 
+  return returnValue;
+}
+
+Value* LCM::getExpressionFromBasicBlock(uint32_t vn, BasicBlock* BB) {
+
+  bool match = false;
+  Value* returnValue = NULL;
+
+  for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; ++I) {
+    if(rpo->getNumberForValue(&*I) == vn){
+    assert(!match && "Two expressions in a basic block can not have the same value number post local CSE. Please ensure this function is called after local CSE is performed");
+    match = true;
+    returnValue = &*I;
+    }
+  }
+  
   return returnValue;
 }
 
@@ -705,12 +734,142 @@ void LCM::performGlobalDFA() {
 
 void LCM::dumpSmallBitVector(SmallBitVector* BV) {
 
-  errs() << "{";
+  dbgs() << "{";
   for(unsigned VI=0; VI < BV->size(); VI++) {
-      errs() << (*BV)[VI];
-      errs() << " ";
+      dbgs() << (*BV)[VI];
+      dbgs() << " ";
   }
-  errs() << "}\n";
+  dbgs() << "}\n";
+}
+
+// This function allocates the space for the temporaries on the stack, and then
+// calls functions to insert and replace expressions
+void LCM::changeIR() {
+
+  bool first = true;
+  SmallBitVector insertsRequired(bitVectorWidth, false);
+  dfva* dfvaInstance;
+
+  for (Function::iterator BB = Func->begin(), E = Func->end(); BB != E; ++BB) {
+    dfvaInstance = BBMap[BB];
+    
+    if(first) {
+      insertsRequired = *(*dfvaInstance)[INSERTIN] | *(*dfvaInstance)[INSERTOUT];
+      first = false;
+      continue;
+    }
+      
+    insertsRequired |= *(*dfvaInstance)[INSERTIN] | *(*dfvaInstance)[INSERTOUT];
+  }
+
+  uint32_t allocasRequired = insertsRequired.count();
+  uint32_t nextPos = insertsRequired.find_first();
+  dbgs() << allocasRequired << " allocas are required\n";  
+
+  BasicBlock::iterator startInstruction = Func->getEntryBlock().getFirstInsertionPt();
+
+  // get the relevant TYPE and insert ALLOCA at the start of the function
+  // the ALLOCA are name preINSERT<value-number>
+  for(uint32_t i = 0; i < allocasRequired; i++) {
+
+    uint32_t vn = rpo->getVNFromBVPos(nextPos);
+    allocaVector[nextPos] = new AllocaInst(rpo->getLeader(vn)->getType(), "preINSERT"+Twine(vn), startInstruction);
+    nextPos = insertsRequired.find_next(nextPos);
+  }
+
+  setUpInsertReplace();
+}
+
+//TODO : add description
+void LCM::doInsertReplace(uint32_t vn, BasicBlock* BB,  bool insert, bool replace) {
+
+  Instruction* oldInst = NULL;
+  
+  // getExpressionFromBasicBlock returns NULL if no instruction of value number
+  // 'vn' exists in that BB
+  Value* V = getExpressionFromBasicBlock(vn, BB);
+  if(V!=NULL)
+    oldInst = cast<Instruction>(V);
+
+  Instruction* leader = cast<Instruction>(rpo->getLeader(vn));
+  AllocaInst* myAlloca = allocaVector[rpo->getBitVectorPosition(vn)];
+
+  if(insert) {
+     
+    Instruction* newInst;
+    if(oldInst)
+      newInst = oldInst->clone();
+    else
+      newInst = leader->clone();
+    
+    if(oldInst!=NULL) {
+      newInst->insertBefore(oldInst);
+      new StoreInst(newInst, myAlloca, oldInst);
+    }
+    else {
+      newInst->insertBefore(BB->getTerminator());
+      new StoreInst(newInst, myAlloca, BB->getTerminator());
+    }
+  }
+
+  if(replace) {
+    assert(oldInst != NULL && "Nothing to replace");
+    LoadInst* LI = new LoadInst(myAlloca, "preLOAD"+Twine(label++), oldInst);
+    oldInst->replaceAllUsesWith(LI);
+    // we can't delete the instruction here because Instruction->clone() used 
+    // subsequently allocates memory at the exact same location evacuated 
+    // by this instruction. This then causes problems in value numbering
+    // since the hash table is looked up using Value*. We add it to a list, and
+    // delete in the cleanUp()
+    deadList.push_back(oldInst);
+  }
+
+}
+  
+void LCM::setUpInsertReplace() {
+
+  dfva* dfvaInstance;
+  
+  for (Function::iterator BB = Func->begin(), E = Func->end(); BB != E; ++BB) {
+    dfvaInstance = BBMap[BB];
+
+    SmallBitVector insertReplaceInVector = *(*dfvaInstance)[INSERTIN] | *(*dfvaInstance)[REPLACEIN];
+    uint32_t nextPos = insertReplaceInVector.find_first();
+
+    for(uint32_t i = 0; i < insertReplaceInVector.count(); i++) {
+
+      bool insert = (*(*dfvaInstance)[INSERTIN])[nextPos];
+      bool replace = (*(*dfvaInstance)[REPLACEIN])[nextPos];
+      bool antloc = (*(*dfvaInstance)[ANTLOC])[nextPos];
+      bool xcomp = (*(*dfvaInstance)[XCOMP])[nextPos];
+      bool transp = (*(*dfvaInstance)[TRANSP])[nextPos];
+                 
+      assert(~xcomp && "XCOMP has to be false if either of INSERTIN or REPLACEIN is true");
+      assert(transp && "TRANSP has to be true if either of INSERTIN or REPLACEIN is true");
+      if(insert & replace)
+        assert(antloc && "ANTLOC should be true if both INSERTIN AND REPLACEIN are true");
+      
+      doInsertReplace(rpo->getVNFromBVPos(nextPos), BB, insert, replace);
+      nextPos = insertReplaceInVector.find_next(nextPos);
+    }
+  
+    SmallBitVector insertReplaceOutVector = *(*dfvaInstance)[INSERTOUT] | *(*dfvaInstance)[REPLACEOUT];
+    nextPos = insertReplaceOutVector.find_first();
+
+    for(uint32_t i = 0; i < insertReplaceOutVector.count(); i++) {
+
+      bool insert = (*(*dfvaInstance)[INSERTOUT])[nextPos];
+      bool replace = (*(*dfvaInstance)[REPLACEOUT])[nextPos];
+      bool xcomp = (*(*dfvaInstance)[XCOMP])[nextPos];
+      bool transp = (*(*dfvaInstance)[TRANSP])[nextPos];
+
+      if(replace)
+        assert((xcomp & ~transp) && "if REPLACEOUT is true, then XCOMP should be true and TRANSP should be false");
+      
+      doInsertReplace(rpo->getVNFromBVPos(nextPos), BB, insert, replace);
+      nextPos = insertReplaceOutVector.find_next(nextPos);
+    }
+  }
 }
 
 /*******************************************************************
@@ -748,7 +907,14 @@ void LCM::dumpBBAttr(BasicBlock* BB, dfva* D, int verbose ) {
   dbgs() << "\n";*/
 }
 
-void LCM::releaseMemory() {
+void LCM::cleanUp() {
+  
+  // drain the deadList
+  while(!deadList.empty()) {
+    Instruction* I = deadList.front();
+    I->eraseFromParent();
+    deadList.erase(deadList.begin());
+  }
 
   // TODO
   // destroy the DFA framework and free all allocated heap memory
@@ -760,77 +926,40 @@ void LCM::printFlowEquations() {
   // Print VN to BitVectorPosition Map
   std::vector<std::pair<uint32_t, uint32_t> > repeatedValues = rpo->getRepeatedValues();
   for(std::vector<std::pair<uint32_t, uint32_t> >::iterator I = repeatedValues.begin(), E = repeatedValues.end(); I!=E; ++I) 
-    errs() << "[VN]:"<< I->first << "\t[POS]:" << rpo->getBitVectorPosition(I->first) << "\n";
+    dbgs() << "[VN]:"<< I->first << "\t[POS]:" << rpo->getBitVectorPosition(I->first) << "\n";
 
   // Print the bitVectors for each BB
   dfva* dfvaInstance;
   for (Function::iterator BB = Func->begin(), E = Func->end(); BB != E; ++BB) {
     dfvaInstance = BBMap[BB];
-    errs() << *BB << "\n";
-    errs() << "-----\n";
+    dbgs() << *BB << "\n";
+    dbgs() << "-----\n";
     for(uint32_t i = 0; i < TOTALBITVECTORS; i++){
   
       switch(i) {
-        case(ANTLOC) : errs() << " ANTLOC "; break;
-        case(TRANSP) : errs() << " TRANSP "; break;
-        case(XCOMP) : errs() << " XCOMP "; break;
-        case(ANTIN) : errs() << " ANTIN "; break;
-        case(ANTOUT) : errs() << " ANTOUT "; break;
-        case(AVAILIN) : errs() << " AVAILIN "; break;
-        case(AVAILOUT) : errs() << " AVAILOUT "; break;
-        case(EARLIN) : errs() << " EARLIN "; break;
-        case(EARLOUT) : errs() << " EARLOUT "; break;
-        case(DELAYIN) : errs() << " DELAYIN "; break;
-        case(DELAYOUT) : errs() << " DELAYOUT "; break;
-        case(LATESTIN) : errs() << " LATESTIN "; break;
-        case(LATESTOUT) : errs() << " LATESTOUT "; break;
-        case(ISOLIN) : errs() << " ISOLIN "; break;
-        case(ISOLOUT) : errs() << " ISOLOUT "; break;
-        case(INSERTIN) : errs() << " INSERTIN "; break;
-        case(INSERTOUT) : errs() << " INSERTOUT "; break;
-        case(REPLACEIN) : errs() << " REPLACEIN "; break;
-        case(REPLACEOUT) : errs() << " REPLACEOUT "; break;
+        case(ANTLOC) : dbgs() << " ANTLOC "; break;
+        case(TRANSP) : dbgs() << " TRANSP "; break;
+        case(XCOMP) : dbgs() << " XCOMP "; break;
+        case(ANTIN) : dbgs() << " ANTIN "; break;
+        case(ANTOUT) : dbgs() << " ANTOUT "; break;
+        case(AVAILIN) : dbgs() << " AVAILIN "; break;
+        case(AVAILOUT) : dbgs() << " AVAILOUT "; break;
+        case(EARLIN) : dbgs() << " EARLIN "; break;
+        case(EARLOUT) : dbgs() << " EARLOUT "; break;
+        case(DELAYIN) : dbgs() << " DELAYIN "; break;
+        case(DELAYOUT) : dbgs() << " DELAYOUT "; break;
+        case(LATESTIN) : dbgs() << " LATESTIN "; break;
+        case(LATESTOUT) : dbgs() << " LATESTOUT "; break;
+        case(ISOLIN) : dbgs() << " ISOLIN "; break;
+        case(ISOLOUT) : dbgs() << " ISOLOUT "; break;
+        case(INSERTIN) : dbgs() << " INSERTIN "; break;
+        case(INSERTOUT) : dbgs() << " INSERTOUT "; break;
+        case(REPLACEIN) : dbgs() << " REPLACEIN "; break;
+        case(REPLACEOUT) : dbgs() << " REPLACEOUT "; break;
       }
       
       dumpSmallBitVector((*dfvaInstance)[i]);
     }
-    errs() << "-----\n"; 
+    dbgs() << "-----\n"; 
   }
 }
-
-/*SmallBitVector LCM::calculateTrans(BasicBlock* BB)
-{
-  dbgs() << "Finding Trans BB\n";
-  //BB->printAsOperand(dbgs(),false);
-
-  SmallBitVector returnValue(bitVectorWidth, true);
-
-  for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; ++I) {
-    Instruction* BBI = I;
-    uint32_t  VI  = rpo->getBitVectorPosition(BBI);  
-    if(VI >= bitVectorWidth) 
-      continue;
-    dbgs() << "\tInstruction: " << *BBI << " Value " << VI  << " \n";
-    Value* V = rpo->getLeader(BBI);
-    Instruction* LI =  cast<Instruction>(V);
-    
-    assert(LI != NULL && "getLeader() returned NULL");    
-    dbgs() << "\tLeader Instruction: " << *LI << " \n";
-    
-    bool isAnyOpDef = false;
-    for (User::op_iterator OP = LI->op_begin(), E = LI->op_end(); OP != E; ++OP) {
-      if(Instruction *Ins = dyn_cast<Instruction>(OP)) {
-        isAnyOpDef = true;
-        if(BB != Ins->getParent()) {
-          dbgs() << " Transparent \n";
-          returnValue[VI] = 0;
-        }
-      }
-    }
-    if(false == isAnyOpDef) {
-      dbgs() << " Transparent \n";
-      returnValue[VI] = 0;
-    }
-  }
-  return returnValue;
-}*/
