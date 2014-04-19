@@ -67,6 +67,8 @@ namespace {
     virtual void getAnalysisUsage(AnalysisUsage &AU) const {
       AU.setPreservesCFG();
       AU.addRequired<LoopInfo>();
+      AU.addRequired<DominatorTree>();
+      AU.addPreserved<DominatorTree>();  
       //AU.addRequired<DominatorTreeWrapperPass>();
       //AU.addPreserved<DominatorTreeWrapperPass>();
       AU.addRequiredID(BreakCriticalEdgesID);
@@ -76,6 +78,7 @@ namespace {
       Function* Func;
       RPO* rpo;
       LoopInfo* LI;
+      DominatorTree *DT;
 
       // Maps each Basic Block to a vector of SmallBitVectors, each of which
       // represents a property as defined in bitVectors enum 
@@ -136,6 +139,7 @@ bool LCM::runOnFunction(Function &F)
 {
   Func = &F;
   LI = &getAnalysis<LoopInfo>();
+  DT = &getAnalysis<DominatorTree>();
 
   bool Changed = false;
   rpo = new RPO(F,LI);
@@ -154,7 +158,7 @@ bool LCM::runOnFunction(Function &F)
   performLocalCSE();
   performDFA();
   changeIR();
-  cleanUp();
+  //cleanUp();
 
   // TODO: change return value
   return Changed;
@@ -272,8 +276,37 @@ SmallBitVector LCM::calculateTrans(BasicBlock* BB) {
     for (User::op_iterator OP = I->op_begin(), E = I->op_end(); OP != E; ++OP) {
     
       if(Instruction *operandIns = dyn_cast<Instruction>(OP)) { 
-        DEBUG(errs() << "\toperand Instruction: " << operandIns << "\n");
+        DEBUG(errs() << "\toperand Instruction: " << *operandIns << "\n");
         if(BB == operandIns->getParent()) {
+          returnValue[VI] = false;
+          break;
+        }
+      }
+    }
+  }
+
+  // TODO: add description to explain why is this a problem
+  // another condition which can make TRANSP false is that if the operands of an
+  // expression are defined in the same basic block, and the leader expression 
+  // doesn't dominate this expression
+  for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; ++I) {
+    Instruction* BBI = I;
+    uint32_t  VI  = rpo->getBitVectorPosition(BBI);  
+    DEBUG(errs() << "\tInstruction-: " << *BBI << " Value " << VI << " Size " << bitVectorWidth<< " \n");
+    if(VI >= bitVectorWidth) 
+      continue;
+
+    Instruction* leader = cast<Instruction>(rpo->getLeader(BBI));
+    // leader expressions dominate their leader, since an expression always
+    // dominates itself
+    if(leader == BBI)
+      continue;
+
+    for (User::op_iterator OP = BBI->op_begin(), E = BBI->op_end(); OP != E; ++OP) {
+    
+      if(Instruction *operandIns = dyn_cast<Instruction>(OP)) { 
+        DEBUG(errs() << "\toperand Instruction: " << *operandIns << "\n");
+        if(BB == operandIns->getParent() && !DT->dominates(leader, BBI)) {
           returnValue[VI] = false;
           break;
         }
