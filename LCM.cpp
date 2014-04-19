@@ -7,7 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 //  
-//      
+      
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Scalar.h"
@@ -30,8 +30,9 @@
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
 using namespace llvm;
-STATISTIC(NumLCMCompInserted,  "Number of computation Inserted deleted");
+STATISTIC(NumLCMCompInserted,   "Number of computation Inserted deleted");
 STATISTIC(NumLCMCompReplaced,   "Number of computation Replaced deleted");
+STATISTIC(NumLoopCodeMotion,    "Number of loop invariant code motion");
 
 namespace {
   
@@ -151,8 +152,9 @@ bool LCM::runOnFunction(Function &F)
   
   // counters
   label = 0;
-  NumLCMCompInserted = 0;
-  NumLCMCompReplaced = 0;
+  NumLCMCompInserted  = 0;
+  NumLCMCompReplaced  = 0;
+  NumLoopCodeMotion   = 0;
   
   bitVectorWidth = rpo->getRepeatedValues().size();
   allocaVector.insert(allocaVector.begin(), bitVectorWidth, NULL);
@@ -834,6 +836,10 @@ void LCM::doInsertReplace(uint32_t vn, BasicBlock* BB,  bool insert, bool replac
 
   Instruction* leader = cast<Instruction>(rpo->getLeader(vn));
   AllocaInst* myAlloca = allocaVector[rpo->getBitVectorPosition(vn)];
+
+  if(replace && !insert && NULL != LI->getLoopFor(BB)) {
+    NumLoopCodeMotion++;
+  }
 
   if(insert) {
      
