@@ -30,6 +30,8 @@
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
 using namespace llvm;
+STATISTIC(NumLCMCompInserted,  "Number of computation Inserted deleted");
+STATISTIC(NumLCMCompReplaced,   "Number of computation Replaced deleted");
 
 namespace {
   
@@ -67,10 +69,10 @@ namespace {
     virtual void getAnalysisUsage(AnalysisUsage &AU) const {
       AU.setPreservesCFG();
       AU.addRequired<LoopInfo>();
-      AU.addRequired<DominatorTree>();
-      AU.addPreserved<DominatorTree>();  
-      //AU.addRequired<DominatorTreeWrapperPass>();
-      //AU.addPreserved<DominatorTreeWrapperPass>();
+      //AU.addRequired<DominatorTree>();
+      //AU.addPreserved<DominatorTree>();  
+      AU.addRequired<DominatorTreeWrapperPass>();
+      AU.addPreserved<DominatorTreeWrapperPass>();
       AU.addRequiredID(BreakCriticalEdgesID);
     }
 
@@ -139,13 +141,16 @@ bool LCM::runOnFunction(Function &F)
 {
   Func = &F;
   LI = &getAnalysis<LoopInfo>();
-  DT = &getAnalysis<DominatorTree>();
+  //DT = &getAnalysis<DominatorTree>();
+  DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
 
   bool Changed = false;
   rpo = new RPO(F,LI);
   rpo->performVN();  
   rpo->print();  
   
+  NumLCMCompInserted = 0;
+  NumLCMCompReplaced = 0;
   label = 0;
   bitVectorWidth = rpo->getRepeatedValues().size();
   allocaVector.insert(allocaVector.begin(), bitVectorWidth, NULL);
@@ -829,6 +834,7 @@ void LCM::doInsertReplace(uint32_t vn, BasicBlock* BB,  bool insert, bool replac
 
   if(insert) {
      
+    NumLCMCompInserted++;
     Instruction* newInst;
 
     // if the expression originally exists in the basic block we clone that,
@@ -847,6 +853,7 @@ void LCM::doInsertReplace(uint32_t vn, BasicBlock* BB,  bool insert, bool replac
   }
 
   if(replace) {
+    NumLCMCompReplaced++;
     assert(oldInst != NULL && "Nothing to replace");
     LoadInst* LI = new LoadInst(myAlloca, "preLOAD"+Twine(label++), oldInst);
     oldInst->replaceAllUsesWith(LI);
