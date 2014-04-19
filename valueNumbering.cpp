@@ -453,7 +453,7 @@ void RPO::handleSpecialCases() {
       I->replaceAllUsesWith(I->getOperand(0));
       Instruction* OldInst = &*I;
       ++I;
-      OldInst->eraseFromParent();
+      deadList.push_back(OldInst);
       
       // since we are deleting the instruction, remove it from the
       // valueNumbering table and the leaderBoard (if present)
@@ -478,7 +478,7 @@ void RPO::handleSpecialCases() {
         Cmp->replaceAllUsesWith(ConstantInt::get(Cmp->getType(), Cmp->getPredicate() == CmpInst::ICMP_EQ));
         Instruction* OldInst = &*I;
         ++I;
-        OldInst->eraseFromParent();
+        deadList.push_back(OldInst);
 
         if(getLeader(OldInst) == OldInst)
         {
@@ -504,7 +504,7 @@ void RPO::calculateBitVectorPosition() {
   if(VT.nextValueNumber-1  > VT.maxValueNumber)
      VT.maxValueNumber = VT.nextValueNumber-1;
   
-  for(uint32_t i=1; i <= VT.maxValueNumber; i++)
+  for(uint32_t i=0; i <= VT.maxValueNumber; i++)
     VNtoBVPos[i] = repeatedValues.size();
 
   for(std::vector<std::pair<uint32_t, uint32_t> >::iterator I = repeatedValues.begin(), E = repeatedValues.end(); I!=E; ++I)
@@ -518,16 +518,6 @@ uint32_t RPO::getBitVectorPosition(Value* V) {
 }
 
 uint32_t RPO::getBitVectorPosition(uint32_t vn) {
-
-  SmallVector<Value*, 8> equalValues;
-  getEqualValues(vn, equalValues);
-
-  if(equalValues.size() == 1) {
-    Instruction* ins = cast<Instruction>(equalValues[0]); 
-    assert(LI->getLoopFor(ins->getParent()) != NULL && "Value-number occurring just once can be allocated a bitvector slot only if it is inside a loop");
-  }
-  else
-    assert(equalValues.size() > 1 && "BitVector position is only available for value-numbers which occur more than once (loops are exempted)");
 
   return VNtoBVPos[vn];
 }
@@ -555,6 +545,7 @@ void RPO::print() {
 }
 
 uint32_t RPO::getNumberForValue(Value *V) {
+  
   return VT.lookup(V);
 }
 
@@ -566,6 +557,12 @@ void RPO::getEqualValues(Value* V, SmallVectorImpl<Value*> &equalValues) {
 
 void RPO::getEqualValues(uint32_t VN, SmallVectorImpl<Value*> &equalValues) {
   
+  // VN=0 means spurious instruction. It could be an instruction which has been
+  // marked for deletion, or some new instruction which we created in the
+  // INSERT-REPLACE PRE process e.g. alloca
+  if(!VN)
+    return;
+
   for (DenseMap<Value*, uint32_t>::const_iterator I = VT.valueNumbering.begin(), E = VT.valueNumbering.end(); I != E; ++I) {
     if(I->second == VN)
       equalValues.push_back(I->first);
@@ -614,4 +611,20 @@ std::vector<std::pair<uint32_t, uint32_t> > RPO::getRepeatedValues() {
   }
     
   return valueCountVector;
+}
+
+void RPO::eraseValue(Value* V) {
+  VT.erase(V);
+}
+
+void RPO::cleanUp() {
+  
+  //drain the deadList
+  while(!deadList.empty()) {
+    Instruction* I = deadList.front();
+    I->eraseFromParent();
+    deadList.erase(deadList.begin());
+    }
+
+  VT.clear();
 }

@@ -138,7 +138,8 @@ class RPO {
     Function& F;
     LoopInfo* LI;
     ValueTable VT;
-    DenseMap<uint32_t, uint32_t> VNtoBVPos; 
+    DenseMap<uint32_t, uint32_t> VNtoBVPos;
+    std::vector<Instruction*> deadList;
     
   public:
     RPO(Function &f, LoopInfo* li) : F(f), LI(li) {}
@@ -157,7 +158,9 @@ class RPO {
 
     // print all instructions with their corresponding VN
     void print();
-
+    void eraseValue(Value* V);
+    void cleanUp();
+    
     // -- Define all interface functions below --
     
     uint32_t getNumberForValue(Value *V);

@@ -143,15 +143,17 @@ bool LCM::runOnFunction(Function &F)
   LI = &getAnalysis<LoopInfo>();
   //DT = &getAnalysis<DominatorTree>();
   DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-
+  
   bool Changed = false;
   rpo = new RPO(F,LI);
   rpo->performVN();  
   rpo->print();  
   
+  // counters
+  label = 0;
   NumLCMCompInserted = 0;
   NumLCMCompReplaced = 0;
-  label = 0;
+  
   bitVectorWidth = rpo->getRepeatedValues().size();
   allocaVector.insert(allocaVector.begin(), bitVectorWidth, NULL);
 
@@ -182,7 +184,7 @@ void LCM::performLocalCSE()
       Instruction* BBI = I;
       DEBUG(errs() << "\tInstruction: " << *BBI << " \n");
       SmallVector<Value*, 8> equalValues;
-      rpo->getEqualValues(I, equalValues);
+      rpo->getEqualValues(&*BBI, equalValues);
 
       for (unsigned j = 0, e = equalValues.size(); j != e;) {
         Instruction* EQI = dyn_cast<Instruction>(equalValues[j]);
@@ -193,7 +195,8 @@ void LCM::performLocalCSE()
         if(BB == EQI->getParent()) {
           j++;
           EQI->replaceAllUsesWith(BBI);
-          EQI->eraseFromParent();
+          rpo->eraseValue(EQI);
+          deadList.push_back(EQI);
         } else {
           ++j;
         }
@@ -835,8 +838,8 @@ void LCM::doInsertReplace(uint32_t vn, BasicBlock* BB,  bool insert, bool replac
   if(insert) {
      
     NumLCMCompInserted++;
+    
     Instruction* newInst;
-
     // if the expression originally exists in the basic block we clone that,
     // otherwise we clone the leader. In the latter case, the leader dominates 
     // the insertion point (SSA guarantees)
@@ -853,7 +856,9 @@ void LCM::doInsertReplace(uint32_t vn, BasicBlock* BB,  bool insert, bool replac
   }
 
   if(replace) {
+
     NumLCMCompReplaced++;
+    
     assert(oldInst != NULL && "Nothing to replace");
     LoadInst* LI = new LoadInst(myAlloca, "preLOAD"+Twine(label++), oldInst);
     oldInst->replaceAllUsesWith(LI);
@@ -862,6 +867,7 @@ void LCM::doInsertReplace(uint32_t vn, BasicBlock* BB,  bool insert, bool replac
     // by this instruction. This then causes problems in value numbering
     // since the hash table is looked up using Value*. We add it to a list, and
     // delete in the cleanUp()
+    rpo->eraseValue(oldInst);
     deadList.push_back(oldInst);
   }
 
@@ -932,6 +938,9 @@ void LCM::cleanUp() {
     I->eraseFromParent();
     deadList.erase(deadList.begin());
   }
+
+  // clear the value numbering table
+  rpo->cleanUp();
 
   // TODO
   // destroy the DFA framework and free all allocated heap memory
