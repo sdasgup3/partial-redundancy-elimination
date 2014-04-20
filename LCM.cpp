@@ -165,7 +165,7 @@ bool LCM::runOnFunction(Function &F)
   performLocalCSE();
   performDFA();
   changeIR();
-  //cleanUp();
+  cleanUp();
 
   // TODO: change return value
   return Changed;

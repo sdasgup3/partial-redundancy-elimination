@@ -368,7 +368,7 @@
  
  void ValueTable::clearExpressions() {
    expressionNumbering.clear();
-   constantsNumbering.clear();
+   //constantsNumbering.clear();
    if(nextValueNumber-1  > maxValueNumber)
      maxValueNumber = nextValueNumber-1;
    nextValueNumber = 1;
