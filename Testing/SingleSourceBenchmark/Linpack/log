@@ -1,0 +1,37 @@
+Running linpack-pc.c
+	LCM Run real	0m29.741s user	0m29.159s sys	0m0.156s
+	GVN Run real	0m22.441s user	0m21.367s sys	0m0.443s
+	LCM Opt
+===-------------------------------------------------------------------------===
+                          ... Statistics Collected ...
+===-------------------------------------------------------------------------===
+
+  2                  - Number of computation Inserted deleted
+  4                  - Number of computation Replaced deleted
+  0                  - Number of loop invariant code motion
+102 break-crit-edges - Number of blocks inserted
+ 10 lcssa            - Number of live out of a loop variables
+ 38 loop-rotate      - Number of loops rotated
+  1 loop-simplify    - Number of pre-header or exit blocks inserted
+ 56 mem2reg          - Number of PHI nodes inserted
+199 mem2reg          - Number of alloca's promoted
+158 mem2reg          - Number of alloca's promoted with a single store
+  1 mem2reg          - Number of alloca's promoted within one block
+  1 mem2reg          - Number of dead alloca's removed
+
+	GVN Opt
+===-------------------------------------------------------------------------===
+                          ... Statistics Collected ...
+===-------------------------------------------------------------------------===
+
+  39 gvn    - Number of blocks merged
+ 176 gvn    - Number of instructions deleted
+   7 gvn    - Number of instructions simplified
+   5 gvn    - Number of loads PRE'd
+ 145 gvn    - Number of loads deleted
+  26 memdep - Number of block queries that were completely cached
+1235 memdep - Number of fully cached non-local ptr responses
+ 637 memdep - Number of uncached non-local ptr responses
+
+
+=======================

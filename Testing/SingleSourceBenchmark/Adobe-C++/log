@@ -1,0 +1,209 @@
+Running functionobjects.cpp
+	LCM Run: real	0m7.792s user	0m7.774s sys	0m0.005s
+	GVN Run: real	0m10.865s user	0m10.591s sys	0m0.056s
+	LCM Opt
+===-------------------------------------------------------------------------===
+                          ... Statistics Collected ...
+===-------------------------------------------------------------------------===
+
+  0                  - Number of computation Inserted deleted
+  0                  - Number of computation Replaced deleted
+  0                  - Number of loop invariant code motion
+189 break-crit-edges - Number of blocks inserted
+ 66 lcssa            - Number of live out of a loop variables
+ 57 loop-rotate      - Number of loops rotated
+ 11 loop-simplify    - Number of pre-header or exit blocks inserted
+159 mem2reg          - Number of PHI nodes inserted
+538 mem2reg          - Number of alloca's promoted
+339 mem2reg          - Number of alloca's promoted with a single store
+ 93 mem2reg          - Number of dead alloca's removed
+
+	GVN Opt
+===-------------------------------------------------------------------------===
+                          ... Statistics Collected ...
+===-------------------------------------------------------------------------===
+
+  36 gvn    - Number of blocks merged
+ 444 gvn    - Number of instructions deleted
+   4 gvn    - Number of instructions simplified
+  58 gvn    - Number of loads PRE'd
+ 343 gvn    - Number of loads deleted
+ 240 memdep - Number of block queries that were completely cached
+2937 memdep - Number of fully cached non-local ptr responses
+1802 memdep - Number of uncached non-local ptr responses
+
+
+=======================
+Running loop_unroll.cpp
+	LCM Run: real	0m17.556s user	0m17.452s sys	0m0.025s
+	GVN Run: real	0m21.490s user	0m21.382s sys	0m0.056s
+	LCM Opt
+===-------------------------------------------------------------------------===
+                          ... Statistics Collected ...
+===-------------------------------------------------------------------------===
+
+   2                  - Number of computation Inserted deleted
+   3                  - Number of computation Replaced deleted
+   2                  - Number of loop invariant code motion
+1566 break-crit-edges - Number of blocks inserted
+ 261 lcssa            - Number of live out of a loop variables
+ 521 loop-rotate      - Number of loops rotated
+ 913 mem2reg          - Number of PHI nodes inserted
+2687 mem2reg          - Number of alloca's promoted
+2101 mem2reg          - Number of alloca's promoted with a single store
+  64 mem2reg          - Number of alloca's promoted within one block
+
+	GVN Opt
+===-------------------------------------------------------------------------===
+                          ... Statistics Collected ...
+===-------------------------------------------------------------------------===
+
+ 519 gvn    - Number of blocks merged
+2492 gvn    - Number of instructions deleted
+ 140 gvn    - Number of instructions simplified
+   2 gvn    - Number of loads PRE'd
+2344 gvn    - Number of loads deleted
+1034 memdep - Number of block queries that were completely cached
+8241 memdep - Number of fully cached non-local ptr responses
+9634 memdep - Number of uncached non-local ptr responses
+
+
+=======================
+Running simple_types_constant_folding.cpp
+	LCM Run: real	0m39.837s user	0m38.862s sys	0m0.357s
+	GVN Run: real	0m32.402s user	0m31.645s sys	0m0.369s
+	LCM Opt
+===-------------------------------------------------------------------------===
+                          ... Statistics Collected ...
+===-------------------------------------------------------------------------===
+
+   0                  - Number of computation Inserted deleted
+   0                  - Number of computation Replaced deleted
+   0                  - Number of loop invariant code motion
+1485 break-crit-edges - Number of blocks inserted
+ 293 lcssa            - Number of live out of a loop variables
+ 593 loop-rotate      - Number of loops rotated
+ 890 mem2reg          - Number of PHI nodes inserted
+2677 mem2reg          - Number of alloca's promoted
+1794 mem2reg          - Number of alloca's promoted with a single store
+
+	GVN Opt
+===-------------------------------------------------------------------------===
+                          ... Statistics Collected ...
+===-------------------------------------------------------------------------===
+
+ 583 gvn          - Number of blocks merged
+1106 gvn          - Number of instructions deleted
+  26 gvn          - Number of instructions simplified
+   2 gvn          - Number of loads PRE'd
+1072 gvn          - Number of loads deleted
+   8 instsimplify - Number of reassociations
+1164 memdep       - Number of block queries that were completely cached
+4225 memdep       - Number of fully cached non-local ptr responses
+6564 memdep       - Number of uncached non-local ptr responses
+
+
+=======================
+Running simple_types_loop_invariant.cpp
+	LCM Run: real	0m15.682s user	0m15.211s sys	0m0.239s
+	GVN Run: real	0m15.669s user	0m15.600s sys	0m0.027s
+	LCM Opt
+===-------------------------------------------------------------------------===
+                          ... Statistics Collected ...
+===-------------------------------------------------------------------------===
+
+   0                  - Number of computation Inserted deleted
+   0                  - Number of computation Replaced deleted
+   0                  - Number of loop invariant code motion
+ 876 break-crit-edges - Number of blocks inserted
+ 173 lcssa            - Number of live out of a loop variables
+ 353 loop-rotate      - Number of loops rotated
+ 531 mem2reg          - Number of PHI nodes inserted
+2968 mem2reg          - Number of alloca's promoted
+2444 mem2reg          - Number of alloca's promoted with a single store
+
+	GVN Opt
+===-------------------------------------------------------------------------===
+                          ... Statistics Collected ...
+===-------------------------------------------------------------------------===
+
+ 343 gvn    - Number of blocks merged
+1027 gvn    - Number of instructions deleted
+   2 gvn    - Number of instructions simplified
+   2 gvn    - Number of loads PRE'd
+ 993 gvn    - Number of loads deleted
+ 844 memdep - Number of block queries that were completely cached
+6576 memdep - Number of fully cached non-local ptr responses
+5257 memdep - Number of uncached non-local ptr responses
+
+
+=======================
+Running stepanov_abstraction.cpp
+	LCM Run: real	1m19.350s user	1m17.180s sys	0m1.034s
+	GVN Run: real	1m34.401s user	1m31.949s sys	0m0.479s
+	LCM Opt
+===-------------------------------------------------------------------------===
+                          ... Statistics Collected ...
+===-------------------------------------------------------------------------===
+
+  0                  - Number of computation Inserted deleted
+  0                  - Number of computation Replaced deleted
+  0                  - Number of loop invariant code motion
+223 break-crit-edges - Number of blocks inserted
+ 37 lcssa            - Number of live out of a loop variables
+ 82 loop-rotate      - Number of loops rotated
+145 mem2reg          - Number of PHI nodes inserted
+741 mem2reg          - Number of alloca's promoted
+639 mem2reg          - Number of alloca's promoted with a single store
+
+	GVN Opt
+===-------------------------------------------------------------------------===
+                          ... Statistics Collected ...
+===-------------------------------------------------------------------------===
+
+  55 gvn    - Number of blocks merged
+ 388 gvn    - Number of instructions deleted
+   2 gvn    - Number of instructions simplified
+  35 gvn    - Number of loads PRE'd
+ 266 gvn    - Number of loads deleted
+ 173 memdep - Number of block queries that were completely cached
+1273 memdep - Number of fully cached non-local ptr responses
+1070 memdep - Number of uncached non-local ptr responses
+
+
+=======================
+Running stepanov_vector.cpp
+	LCM Run: real	0m57.915s user	0m57.016s sys	0m0.166s
+	GVN Run: real	1m12.976s user	1m12.430s sys	0m0.286s
+	LCM Opt
+===-------------------------------------------------------------------------===
+                          ... Statistics Collected ...
+===-------------------------------------------------------------------------===
+
+  0                  - Number of computation Inserted deleted
+  0                  - Number of computation Replaced deleted
+  0                  - Number of loop invariant code motion
+225 break-crit-edges - Number of blocks inserted
+ 31 lcssa            - Number of live out of a loop variables
+ 84 loop-rotate      - Number of loops rotated
+113 mem2reg          - Number of PHI nodes inserted
+585 mem2reg          - Number of alloca's promoted
+502 mem2reg          - Number of alloca's promoted with a single store
+  1 mem2reg          - Number of alloca's promoted within one block
+
+	GVN Opt
+===-------------------------------------------------------------------------===
+                          ... Statistics Collected ...
+===-------------------------------------------------------------------------===
+
+  63 gvn    - Number of blocks merged
+ 478 gvn    - Number of instructions deleted
+   4 gvn    - Number of instructions simplified
+  19 gvn    - Number of loads PRE'd
+ 316 gvn    - Number of loads deleted
+ 119 memdep - Number of block queries that were completely cached
+1041 memdep - Number of fully cached non-local ptr responses
+ 974 memdep - Number of uncached non-local ptr responses
+
+
+=======================

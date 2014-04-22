@@ -1,0 +1,9 @@
+McGill/chomp.c
+	real	0m2.497s user	0m2.485s sys	0m0.008s
+	real	0m2.460s user	0m2.447s sys	0m0.011s
+McGill/misr.c
+	real	0m0.732s user	0m0.729s sys	0m0.003s
+	real	0m0.437s user	0m0.430s sys	0m0.005s
+McGill/queens.c
+	real	0m4.891s user	0m4.768s sys	0m0.093s
+	real	0m3.572s user	0m3.492s sys	0m0.061s

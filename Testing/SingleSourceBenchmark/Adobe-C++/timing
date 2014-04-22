@@ -1,0 +1,18 @@
+Adobe-C++/functionobjects.cpp
+	real	0m7.792s user	0m7.774s sys	0m0.005s
+	real	0m10.865s user	0m10.591s sys	0m0.056s
+Adobe-C++/loop_unroll.cpp
+	real	0m17.556s user	0m17.452s sys	0m0.025s
+	real	0m21.490s user	0m21.382s sys	0m0.056s
+Adobe-C++/simple_types_constant_folding.cpp
+	real	0m39.837s user	0m38.862s sys	0m0.357s
+	real	0m32.402s user	0m31.645s sys	0m0.369s
+Adobe-C++/simple_types_loop_invariant.cpp
+	real	0m15.682s user	0m15.211s sys	0m0.239s
+	real	0m15.669s user	0m15.600s sys	0m0.027s
+Adobe-C++/stepanov_abstraction.cpp
+	real	1m19.350s user	1m17.180s sys	0m1.034s
+	real	1m34.401s user	1m31.949s sys	0m0.479s
+Adobe-C++/stepanov_vector.cpp
+	real	0m57.915s user	0m57.016s sys	0m0.166s
+	real	1m12.976s user	1m12.430s sys	0m0.286s

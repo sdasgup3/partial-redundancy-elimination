@@ -1,0 +1,15 @@
+Misc-C++/bigfib.cpp
+  real	0m1.622s user	0m1.288s sys	0m0.223s
+  real	0m1.537s user	0m1.266s sys	0m0.143s
+Misc-C++/mandel-text.cpp
+  real	0m3.903s user	0m3.675s sys	0m0.040s
+  real	0m3.489s user	0m3.333s sys	0m0.043s
+Misc-C++/oopack_v1p8.cpp
+  real	0m1.103s user	0m0.987s sys	0m0.063s
+  real	0m0.954s user	0m0.922s sys	0m0.006s
+Misc-C++/stepanov_container.cpp
+  real	0m11.131s user	0m10.172s sys	0m0.230s
+  real	0m11.064s user	0m10.252s sys	0m0.167s
+Misc-C++/stepanov_v1p2.cpp
+  real	1m50.333s user	1m48.113s sys	0m0.421s
+  real	2m26.594s user	2m25.222s sys	0m0.483s

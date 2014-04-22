@@ -1,0 +1,45 @@
+Running smallpt.cpp
+	LCM Opt
+===-------------------------------------------------------------------------===
+                          ... Statistics Collected ...
+===-------------------------------------------------------------------------===
+
+  0                  - Number of computation Inserted deleted
+  0                  - Number of computation Replaced deleted
+  0                  - Number of loop invariant code motion
+ 15 break-crit-edges - Number of blocks inserted
+  6 loop-rotate      - Number of loops rotated
+  1 loop-simplify    - Number of pre-header or exit blocks inserted
+  8 mem2reg          - Number of PHI nodes inserted
+110 mem2reg          - Number of alloca's promoted
+ 99 mem2reg          - Number of alloca's promoted with a single store
+
+	GVN Opt
+===-------------------------------------------------------------------------===
+                          ... Statistics Collected ...
+===-------------------------------------------------------------------------===
+
+  9 gvn    - Number of blocks merged
+  1 gvn    - Number of instructions PRE'd
+138 gvn    - Number of instructions deleted
+  5 gvn    - Number of loads PRE'd
+ 64 gvn    - Number of loads deleted
+ 34 memdep - Number of block queries that were completely cached
+150 memdep - Number of fully cached non-local ptr responses
+116 memdep - Number of uncached non-local ptr responses
+
+
+	LCM Run
+Rendering (4 spp)
+
+real	0m28.666s
+user	0m28.612s
+sys	0m0.042s
+
+	GVN Run
+Rendering (4 spp)
+
+real	0m36.563s
+user	0m36.413s
+sys	0m0.067s
+=======================

@@ -1,0 +1,6 @@
+Dhrystone/dry.c
+	real	0m8.202s user	0m7.468s sys	0m0.185s 
+	real	0m10.122s user	0m9.808s sys	0m0.068s
+Dhrystone/fldry.c
+	real	0m10.005s user	0m9.798s sys	0m0.058s 
+	real	0m13.351s user	0m13.338s sys	0m0.006s

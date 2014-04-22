@@ -1,0 +1,140 @@
+Running almabench.c
+	LCM Run real	0m16.545s user	0m16.348s sys	0m0.057s
+	GVN Run real	0m18.039s user	0m17.904s sys	0m0.041s
+	LCM Opt
+===-------------------------------------------------------------------------===
+                          ... Statistics Collected ...
+===-------------------------------------------------------------------------===
+
+ 5                  - Number of computation Inserted deleted
+ 6                  - Number of computation Replaced deleted
+ 6                  - Number of loop invariant code motion
+14 break-crit-edges - Number of blocks inserted
+ 4 lcssa            - Number of live out of a loop variables
+ 8 loop-rotate      - Number of loops rotated
+ 1 loop-simplify    - Number of pre-header or exit blocks inserted
+13 mem2reg          - Number of PHI nodes inserted
+68 mem2reg          - Number of alloca's promoted
+52 mem2reg          - Number of alloca's promoted with a single store
+ 3 mem2reg          - Number of alloca's promoted within one block
+ 2 mem2reg          - Number of dead alloca's removed
+
+	GVN Opt
+===-------------------------------------------------------------------------===
+                          ... Statistics Collected ...
+===-------------------------------------------------------------------------===
+
+  8 gvn    - Number of blocks merged
+ 70 gvn    - Number of instructions deleted
+ 16 gvn    - Number of instructions simplified
+ 38 gvn    - Number of loads deleted
+ 19 memdep - Number of block queries that were completely cached
+115 memdep - Number of fully cached non-local ptr responses
+ 75 memdep - Number of uncached non-local ptr responses
+
+
+=======================
+Running fftbench.cpp
+	LCM Run real	0m5.473s user	0m4.851s sys	0m0.607s 
+	GVN Run real	0m4.835s user	0m4.690s sys	0m0.103s
+	LCM Opt
+===-------------------------------------------------------------------------===
+                          ... Statistics Collected ...
+===-------------------------------------------------------------------------===
+
+  0                  - Number of computation Inserted deleted
+  0                  - Number of computation Replaced deleted
+  0                  - Number of loop invariant code motion
+ 44 break-crit-edges - Number of blocks inserted
+  5 lcssa            - Number of live out of a loop variables
+ 15 loop-rotate      - Number of loops rotated
+ 10 loop-simplify    - Number of pre-header or exit blocks inserted
+ 49 mem2reg          - Number of PHI nodes inserted
+165 mem2reg          - Number of alloca's promoted
+123 mem2reg          - Number of alloca's promoted with a single store
+
+	GVN Opt
+===-------------------------------------------------------------------------===
+                          ... Statistics Collected ...
+===-------------------------------------------------------------------------===
+
+ 28 gvn    - Number of blocks merged
+153 gvn    - Number of instructions deleted
+  1 gvn    - Number of instructions simplified
+  3 gvn    - Number of loads PRE'd
+116 gvn    - Number of loads deleted
+ 26 memdep - Number of block queries that were completely cached
+220 memdep - Number of fully cached non-local ptr responses
+311 memdep - Number of uncached non-local ptr responses
+
+
+=======================
+Running huffbench.c
+	LCM Run real	1m43.345s user	1m42.486s sys	0m0.316s
+	GVN Run real	1m4.767s user	1m4.374s sys	0m0.185s
+	LCM Opt
+===-------------------------------------------------------------------------===
+                          ... Statistics Collected ...
+===-------------------------------------------------------------------------===
+
+ 0                  - Number of computation Inserted deleted
+ 0                  - Number of computation Replaced deleted
+ 0                  - Number of loop invariant code motion
+44 break-crit-edges - Number of blocks inserted
+17 lcssa            - Number of live out of a loop variables
+17 loop-rotate      - Number of loops rotated
+ 2 loop-simplify    - Number of pre-header or exit blocks inserted
+67 mem2reg          - Number of PHI nodes inserted
+58 mem2reg          - Number of alloca's promoted
+32 mem2reg          - Number of alloca's promoted with a single store
+
+	GVN Opt
+===-------------------------------------------------------------------------===
+                          ... Statistics Collected ...
+===-------------------------------------------------------------------------===
+
+ 13 gvn    - Number of blocks merged
+ 65 gvn    - Number of instructions deleted
+  1 gvn    - Number of instructions simplified
+  6 gvn    - Number of loads PRE'd
+ 50 gvn    - Number of loads deleted
+ 14 memdep - Number of block queries that were completely cached
+384 memdep - Number of fully cached non-local ptr responses
+284 memdep - Number of uncached non-local ptr responses
+
+
+=======================
+Running lpbench.c
+	LCM Run real	0m18.195s user	0m17.958s sys	0m0.170s
+	GVN Run real	0m16.514s user	0m16.359s sys	0m0.045s
+	LCM Opt
+===-------------------------------------------------------------------------===
+                          ... Statistics Collected ...
+===-------------------------------------------------------------------------===
+
+ 0                  - Number of computation Inserted deleted
+ 0                  - Number of computation Replaced deleted
+ 0                  - Number of loop invariant code motion
+41 break-crit-edges - Number of blocks inserted
+ 2 lcssa            - Number of live out of a loop variables
+18 loop-rotate      - Number of loops rotated
+ 1 loop-simplify    - Number of pre-header or exit blocks inserted
+36 mem2reg          - Number of PHI nodes inserted
+76 mem2reg          - Number of alloca's promoted
+57 mem2reg          - Number of alloca's promoted with a single store
+
+	GVN Opt
+===-------------------------------------------------------------------------===
+                          ... Statistics Collected ...
+===-------------------------------------------------------------------------===
+
+ 19 gvn    - Number of blocks merged
+ 63 gvn    - Number of instructions deleted
+  3 gvn    - Number of loads PRE'd
+ 57 gvn    - Number of loads deleted
+ 19 memdep - Number of block queries that were completely cached
+250 memdep - Number of fully cached non-local ptr responses
+276 memdep - Number of uncached non-local ptr responses
+
+
+=======================

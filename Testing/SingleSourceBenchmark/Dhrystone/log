@@ -1,0 +1,70 @@
+Running dry.c
+	LCM Run real	0m8.202s user	0m7.468s sys	0m0.185s 
+	GVN Run real	0m10.122s user	0m9.808s sys	0m0.068s
+	LCM Opt
+===-------------------------------------------------------------------------===
+                          ... Statistics Collected ...
+===-------------------------------------------------------------------------===
+
+ 0                  - Number of computation Inserted deleted
+ 0                  - Number of computation Replaced deleted
+ 0                  - Number of loop invariant code motion
+16 break-crit-edges - Number of blocks inserted
+ 1 lcssa            - Number of live out of a loop variables
+ 6 loop-rotate      - Number of loops rotated
+12 mem2reg          - Number of PHI nodes inserted
+55 mem2reg          - Number of alloca's promoted
+33 mem2reg          - Number of alloca's promoted with a single store
+10 mem2reg          - Number of alloca's promoted within one block
+ 2 mem2reg          - Number of dead alloca's removed
+
+	GVN Opt
+===-------------------------------------------------------------------------===
+                          ... Statistics Collected ...
+===-------------------------------------------------------------------------===
+
+  5 gvn    - Number of blocks merged
+ 36 gvn    - Number of instructions deleted
+  3 gvn    - Number of loads PRE'd
+ 30 gvn    - Number of loads deleted
+ 12 memdep - Number of block queries that were completely cached
+183 memdep - Number of fully cached non-local ptr responses
+144 memdep - Number of uncached non-local ptr responses
+
+
+=======================
+Running fldry.c
+	LCM Run real	0m10.005s user	0m9.798s sys	0m0.058s 
+	GVN Run real	0m13.351s user	0m13.338s sys	0m0.006s
+	LCM Opt
+===-------------------------------------------------------------------------===
+                          ... Statistics Collected ...
+===-------------------------------------------------------------------------===
+
+ 0                  - Number of computation Inserted deleted
+ 0                  - Number of computation Replaced deleted
+ 0                  - Number of loop invariant code motion
+17 break-crit-edges - Number of blocks inserted
+ 1 lcssa            - Number of live out of a loop variables
+ 6 loop-rotate      - Number of loops rotated
+12 mem2reg          - Number of PHI nodes inserted
+56 mem2reg          - Number of alloca's promoted
+34 mem2reg          - Number of alloca's promoted with a single store
+10 mem2reg          - Number of alloca's promoted within one block
+ 2 mem2reg          - Number of dead alloca's removed
+
+	GVN Opt
+===-------------------------------------------------------------------------===
+                          ... Statistics Collected ...
+===-------------------------------------------------------------------------===
+
+  5 gvn    - Number of blocks merged
+ 37 gvn    - Number of instructions deleted
+  3 gvn    - Number of loads PRE'd
+ 30 gvn    - Number of loads deleted
+ 12 memdep - Number of block queries that were completely cached
+183 memdep - Number of fully cached non-local ptr responses
+144 memdep - Number of uncached non-local ptr responses
+
+
+=======================
