@@ -7,7 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 //  
-      
+//      
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Scalar.h"
@@ -30,9 +30,10 @@
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
 using namespace llvm;
-STATISTIC(NumLCMCompInserted,   "Number of computation Inserted deleted");
-STATISTIC(NumLCMCompReplaced,   "Number of computation Replaced deleted");
-STATISTIC(NumLoopCodeMotion,    "Number of loop invariant code motion");
+STATISTIC(NumLCMCompInserted,  "[526] Number of computations INSERTED");
+STATISTIC(NumLCMCompReplaced,   "[526] Number of computations REPLACED");
+STATISTIC(NumLCMMaskedInserts,   "[526] Number of INSERTS masked out");
+STATISTIC(NumLoopCodeMotion,    "[526] Number of loop invariant code motion");
 
 namespace {
   
@@ -97,8 +98,12 @@ namespace {
       // more than once in the program
       uint32_t bitVectorWidth;
 
-      // holds the new alloca instructions created for INSERT-REPLACE
+      // Holds the new alloca instructions created for INSERT-REPLACE
       std::vector<AllocaInst*> allocaVector;
+
+      // To mask out the insert points where no expression can be cloned and
+      // inserted
+      SmallBitVector insertMask;
 
       // functions 
       void performDFA() ;
@@ -107,15 +112,16 @@ namespace {
       void performConstDFA();
       void performGlobalDFA();
       void changeIR();
-      void setUpInsertReplace();
+      void setupInsertReplace();
       void doInsertReplace(uint32_t vn, BasicBlock* BB, bool insert, bool replace);
-      void doReplace();
       void cleanUp();
       
       void callFramework(uint32_t out, uint32_t in, std::vector<uint32_t> alpha, std::vector<uint32_t> beta, std::vector<uint32_t> gamma, bool meetOp, bool bottom, bool top, bool direction);
       void calculateEarliest();
       void calculateLatest();
       void calculateInsertReplace();
+      Instruction* getInstructionToClone(uint32_t vn, BasicBlock* BB);
+      void buildInsertMask(SmallBitVector insertVector, BasicBlock* BB);
       SmallBitVector getSBVForExpression(std::vector<uint32_t> input, BasicBlock* BB);
       SmallBitVector getSBVForElement(uint32_t num, BasicBlock* BB);
       Value* getExpressionFromBasicBlock(uint32_t vn, BasicBlock* BB);
@@ -146,30 +152,35 @@ bool LCM::runOnFunction(Function &F)
   DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   
   bool Changed = false;
+  uint32_t endCount, startCount = NumLCMCompInserted;
+
   rpo = new RPO(F,LI);
   rpo->performVN();  
   rpo->print();  
   
-  // counters
   label = 0;
-  NumLCMCompInserted  = 0;
-  NumLCMCompReplaced  = 0;
-  NumLoopCodeMotion   = 0;
-  
   bitVectorWidth = rpo->getRepeatedValues().size();
   allocaVector.insert(allocaVector.begin(), bitVectorWidth, NULL);
+  insertMask.resize(bitVectorWidth, false); 
 
   if(0 == bitVectorWidth) {
     DEBUG(errs() << "Nothing to do\n"); 
     return Changed;
   }
   
+  // run PRE
   performLocalCSE();
   performDFA();
   changeIR();
+  
+  NumLCMMaskedInserts += insertMask.count();
   cleanUp();
 
-  // TODO: change return value
+  endCount = NumLCMCompInserted;
+  assert(endCount >= startCount && "Stat counting error");
+  if(!(endCount == startCount))
+    Changed = true;
+
   return Changed;
 }
 
@@ -274,7 +285,6 @@ SmallBitVector LCM::calculateTrans(BasicBlock* BB) {
   std::vector<Value*> allLeaders = rpo->getAllLeaders();
 
   for(uint32_t i = 0; i < allLeaders.size(); i++) {
-    
     Instruction* I = cast<Instruction>(allLeaders[i]);
     uint32_t VI = rpo->getBitVectorPosition(I);
     if(VI >= bitVectorWidth) 
@@ -294,35 +304,29 @@ SmallBitVector LCM::calculateTrans(BasicBlock* BB) {
       }
     }
   }
+ 
+  /*
+   //  Less optimized way of doing the same work as the above for loop
+  for(uint32_t i = 0; i < bitVectorWidth; i++) {
+    uint32_t vn = rpo->getVNFromBVPos(i);
+    SmallVector<Value*, 8> equalValues;
+    Instruction* leader = cast<Instruction>(rpo->getLeader(vn));
+    rpo->getEqualValues(vn, equalValues);
 
-  // TODO: add description to explain why is this a problem
-  // another condition which can make TRANSP false is that if the operands of an
-  // expression are defined in the same basic block, and the leader expression 
-  // doesn't dominate this expression
-  for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; ++I) {
-    Instruction* BBI = I;
-    uint32_t  VI  = rpo->getBitVectorPosition(BBI);  
-    DEBUG(errs() << "\tInstruction-: " << *BBI << " Value " << VI << " Size " << bitVectorWidth<< " \n");
-    if(VI >= bitVectorWidth) 
-      continue;
+    for(SmallVectorImpl<Value *>::iterator I = equalValues.begin(), E = equalValues.end(); I!=E; ++I) {
+      Instruction* ins = cast<Instruction>(*I);
 
-    Instruction* leader = cast<Instruction>(rpo->getLeader(BBI));
-    // leader expressions dominate their leader, since an expression always
-    // dominates itself
-    if(leader == BBI)
-      continue;
-
-    for (User::op_iterator OP = BBI->op_begin(), E = BBI->op_end(); OP != E; ++OP) {
-    
-      if(Instruction *operandIns = dyn_cast<Instruction>(OP)) { 
-        DEBUG(errs() << "\toperand Instruction: " << *operandIns << "\n");
-        if(BB == operandIns->getParent() && !DT->dominates(leader, BBI)) {
-          returnValue[VI] = false;
-          break;
-        }
-      }
+      for (User::op_iterator OP = ins->op_begin(), E_OP = ins->op_end(); OP != E_OP; ++OP) 
+        if(Instruction *operandIns = dyn_cast<Instruction>(OP)) 
+          if(ins == leader && BB == operandIns->getParent()) {
+            returnValue[i] = false;
+            break;
+          }
+      
+      if(!returnValue[i])
+        break;
     }
-  }
+  } */
 
   return returnValue;
 }
@@ -617,6 +621,48 @@ void LCM::callFramework(uint32_t out, uint32_t in, std::vector<uint32_t> alpha, 
   }
 }
 
+Instruction* LCM::getInstructionToClone(uint32_t vn, BasicBlock* BB) {
+  
+  Instruction* terminator = BB->getTerminator();
+  SmallVector<Value*, 8> equalValues;
+  rpo->getEqualValues(vn, equalValues);
+  bool dominates = false;
+
+  for(SmallVectorImpl<Value *>::iterator I = equalValues.begin(), E = equalValues.end(); I!=E; ++I) {
+    Instruction* ins = cast<Instruction>(*I);
+    dominates = true;
+      
+    for (User::op_iterator OP = ins->op_begin(), E_OP = ins->op_end(); OP != E_OP; ++OP) {
+      if(Instruction *operandIns = dyn_cast<Instruction>(OP)) {
+        if(!DT->dominates(operandIns, terminator)) {
+          dominates = false;
+          break;
+        }
+      }
+    }
+
+    if(dominates)
+      return ins;
+  }
+
+  return NULL;
+}
+
+void LCM::buildInsertMask(SmallBitVector insertVector, BasicBlock* BB) {
+
+  int nextPos = insertVector.find_first();
+  
+  while(nextPos != -1) {
+
+    // no instruction found that can be cloned and inserted at the end of basic
+    // block, set the insertMask for this position
+    if(getInstructionToClone(rpo->getVNFromBVPos(nextPos), BB) == NULL)
+      insertMask.set(nextPos);
+
+    nextPos = insertVector.find_next(nextPos);
+  }
+}
+
 // This function calculates the INSERT and REPLACE SmallBitVector for each Basic Block
 void LCM::calculateInsertReplace() {
   
@@ -627,6 +673,8 @@ void LCM::calculateInsertReplace() {
     // eq. for INSERT
     *(*dfvaInstance)[INSERTIN] = *(*dfvaInstance)[LATESTIN] & ~(*(*dfvaInstance)[ISOLIN]);
     *(*dfvaInstance)[INSERTOUT] = *(*dfvaInstance)[LATESTOUT] & ~(*(*dfvaInstance)[ISOLOUT]);
+
+    buildInsertMask(*(*dfvaInstance)[INSERTIN] | *(*dfvaInstance)[INSERTOUT], BB);
 
     // eq. for REPLACE
     *(*dfvaInstance)[REPLACEIN] = *(*dfvaInstance)[ANTLOC] & ~(*(*dfvaInstance)[LATESTIN] & *(*dfvaInstance)[ISOLIN]);
@@ -815,7 +863,7 @@ void LCM::changeIR() {
     nextPos = insertsRequired.find_next(nextPos);
   }
 
-  setUpInsertReplace();
+  setupInsertReplace();
 }
 
 // This function is responsible for adding/removing code for INSERT-REPLACE.
@@ -826,21 +874,18 @@ void LCM::changeIR() {
 // mem2Reg pass converts the stack operations to register operations
 void LCM::doInsertReplace(uint32_t vn, BasicBlock* BB,  bool insert, bool replace) {
 
+  if(replace && !insert && NULL != LI->getLoopFor(BB)) 
+    NumLoopCodeMotion++;
+  
   Instruction* oldInst = NULL;
+  AllocaInst* myAlloca = allocaVector[rpo->getBitVectorPosition(vn)];
   
   // getExpressionFromBasicBlock returns NULL if no instruction of value number
   // 'vn' exists in that BB
   Value* V = getExpressionFromBasicBlock(vn, BB);
   if(V!=NULL)
     oldInst = cast<Instruction>(V);
-
-  Instruction* leader = cast<Instruction>(rpo->getLeader(vn));
-  AllocaInst* myAlloca = allocaVector[rpo->getBitVectorPosition(vn)];
-
-  if(replace && !insert && NULL != LI->getLoopFor(BB)) {
-    NumLoopCodeMotion++;
-  }
-
+  
   if(insert) {
      
     NumLCMCompInserted++;
@@ -855,7 +900,9 @@ void LCM::doInsertReplace(uint32_t vn, BasicBlock* BB,  bool insert, bool replac
       new StoreInst(newInst, myAlloca, oldInst);
     }
     else {
-      newInst = leader->clone();
+      Instruction* toClone = getInstructionToClone(vn, BB);
+      assert(toClone != NULL && "No instruction found for cloning. We should not have made it here");
+      newInst = toClone->clone();
       newInst->insertBefore(BB->getTerminator());
       new StoreInst(newInst, myAlloca, BB->getTerminator());
     }
@@ -881,7 +928,7 @@ void LCM::doInsertReplace(uint32_t vn, BasicBlock* BB,  bool insert, bool replac
 
 // This function performs certain sanity checks before calling doInsertReplace()
 // The checks are different for INSERT/REPLACE at IN and OUT of a basic block
-void LCM::setUpInsertReplace() {
+void LCM::setupInsertReplace() {
 
   dfva* dfvaInstance;
   
@@ -908,6 +955,12 @@ void LCM::setUpInsertReplace() {
       if(insert & replace)
         assert(antloc && "ANTLOC should be true if both INSERTIN AND REPLACEIN are true");
       
+      // do not perform insert and replace for this value number if at some
+      // insertion point of some basic block (for this value number), we can not
+      // find an expression to clone and put there
+      insert = insert & ~insertMask[nextPos];
+      replace = replace & ~insertMask[nextPos];
+
       doInsertReplace(rpo->getVNFromBVPos(nextPos), BB, insert, replace);
       nextPos = insertReplaceInVector.find_next(nextPos);
     }
@@ -929,6 +982,10 @@ void LCM::setUpInsertReplace() {
       if(replace)
         assert((xcomp & ~transp) && "if REPLACEOUT is true, then XCOMP should be true and TRANSP should be false");
       
+      // same reason as above
+      insert = insert & ~insertMask[nextPos];
+      replace = replace & ~insertMask[nextPos];
+     
       doInsertReplace(rpo->getVNFromBVPos(nextPos), BB, insert, replace);
       nextPos = insertReplaceOutVector.find_next(nextPos);
     }
