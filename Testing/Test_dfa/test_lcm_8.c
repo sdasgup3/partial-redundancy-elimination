@@ -1,9 +1,8 @@
 void func(int a, int b, int c)
 {
-  int x,y,z,  d;
+  int x,y,z,  d,w;
     if(x >= 0 ) {
       y = a+b;
-      a=c;
       x=a+b;
     } 
 
@@ -12,6 +11,7 @@ void func(int a, int b, int c)
 label_1:  
         if(a>b) {
           y  =a+b;
+          z = y + b;
           goto label_1;
         }
         goto label_3;
@@ -24,7 +24,7 @@ label_5:
         if(a>b) {
           goto label_5;
         }
-        if(a<b) {
+        if(a>b) {
           y = a+b;
           goto label_3;
         } 
@@ -34,11 +34,11 @@ label_5:
 
 label_3:
           z = a+b;
-          a=c;
           goto label_4;
 
 label_4:
           x = a+b;
+          z = x + b;
           goto label_end;
 
      label_end:     
