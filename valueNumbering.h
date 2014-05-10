@@ -158,8 +158,11 @@ class RPO {
 
     // print all instructions with their corresponding VN
     void print();
-    void eraseValue(Value* V);
     void cleanUp();
+
+    // functions to modify valueNumbering table
+    void eraseValue(Value* V);
+    void addValue(Value* V, uint32_t vn);
     
     // -- Define all interface functions below --
     

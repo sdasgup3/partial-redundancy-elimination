@@ -15,6 +15,7 @@
 #include "llvm/Support/Debug.h"
 #include "valueNumbering.h"
 
+
 //----------------------------------------------------------------------===
  //                     ValueTable Internal Functions
 
@@ -455,14 +456,16 @@ void RPO::handleSpecialCases() {
       ++I;
       deadList.push_back(OldInst);
       
+      /*
       // since we are deleting the instruction, remove it from the
       // valueNumbering table and the leaderBoard (if present)
       if(getLeader(OldInst) == OldInst)
       {
         uint32_t vnInst = VT.lookup(OldInst);
         VT.leaderBoard.erase(vnInst);
-      }
+      }*/
       VT.erase(OldInst);
+      
 
       continue;
     }
@@ -480,12 +483,14 @@ void RPO::handleSpecialCases() {
         ++I;
         deadList.push_back(OldInst);
 
+        /*
         if(getLeader(OldInst) == OldInst)
         {
           uint32_t vnInst = VT.lookup(OldInst);
           VT.leaderBoard.erase(vnInst);
-        }
+        }*/
         VT.erase(OldInst);
+        
 
         continue;
       }
@@ -501,6 +506,9 @@ void RPO::calculateBitVectorPosition() {
   uint32_t k=0;  
   std::vector<std::pair<uint32_t, uint32_t> > repeatedValues = getRepeatedValues();
   
+  // lower value number gets lower bit vector position
+  std::sort(repeatedValues.begin(),repeatedValues.end());
+
   if(VT.nextValueNumber-1  > VT.maxValueNumber)
      VT.maxValueNumber = VT.nextValueNumber-1;
   
@@ -550,7 +558,7 @@ uint32_t RPO::getNumberForValue(Value *V) {
 }
 
 void RPO::getEqualValues(Value* V, SmallVectorImpl<Value*> &equalValues) {
-    
+  
   uint32_t vn = VT.lookup(V);
   getEqualValues(vn, equalValues);
 }
@@ -562,7 +570,7 @@ void RPO::getEqualValues(uint32_t VN, SmallVectorImpl<Value*> &equalValues) {
   // INSERT-REPLACE PRE process e.g. alloca
   if(!VN)
     return;
-
+  
   for (DenseMap<Value*, uint32_t>::const_iterator I = VT.valueNumbering.begin(), E = VT.valueNumbering.end(); I != E; ++I) {
     if(I->second == VN)
       equalValues.push_back(I->first);
@@ -595,6 +603,7 @@ std::vector<std::pair<uint32_t, uint32_t> > RPO::getRepeatedValues() {
   SmallVector<Value*, 8> equalValues;
 
   for (DenseMap<uint32_t, Value*>::const_iterator I = VT.leaderBoard.begin(), E = VT.leaderBoard.end(); I != E; ++I) {
+
     getEqualValues(I->second, equalValues);
     uint32_t size = equalValues.size();
     
@@ -609,7 +618,7 @@ std::vector<std::pair<uint32_t, uint32_t> > RPO::getRepeatedValues() {
 
     equalValues.clear();
   }
-    
+
   return valueCountVector;
 }
 
@@ -617,14 +626,18 @@ void RPO::eraseValue(Value* V) {
   VT.erase(V);
 }
 
+void RPO::addValue(Value* V, uint32_t vn) {
+  VT.add(V, vn);
+}
+
 void RPO::cleanUp() {
-  
+ 
   //drain the deadList
   while(!deadList.empty()) {
     Instruction* I = deadList.front();
     I->eraseFromParent();
     deadList.erase(deadList.begin());
     }
-
+  
   VT.clear();
 }

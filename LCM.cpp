@@ -155,7 +155,7 @@ bool LCM::runOnFunction(Function &F)
   uint32_t endCount, startCount = NumLCMCompInserted;
 
   rpo = new RPO(F,LI);
-  rpo->performVN();  
+  rpo->performVN(); 
   rpo->print();  
   
   label = 0;
@@ -207,6 +207,7 @@ void LCM::performLocalCSE()
         }
         if(BB == EQI->getParent()) {
           j++;
+          
           EQI->replaceAllUsesWith(BBI);
           rpo->eraseValue(EQI);
           deadList.push_back(EQI);
@@ -906,6 +907,9 @@ void LCM::doInsertReplace(uint32_t vn, BasicBlock* BB,  bool insert, bool replac
       newInst->insertBefore(BB->getTerminator());
       new StoreInst(newInst, myAlloca, BB->getTerminator());
     }
+
+    // add the newly created instruction to the value numbering table
+    rpo->addValue(newInst, vn);
   }
 
   if(replace) {
