@@ -158,7 +158,8 @@ path. Using these, the algorithm calculates the \emph{Earliest} property. An exp
 be \emph{Earliest} at a point \emph{p} if there doesn't exist an earlier point where the computation
 of the expression is both down-safe and produces the correct values. Such points are known
 as \emph{computationally optimal} placement points. \\
-\textcolor{red}{space here}Evaluating the expression at computationally optimal points could negatively impact
+
+Evaluating the expression at computationally optimal points could negatively impact
 performance due to increased register pressure. Therefore, the latter half of the LCM algorithm pushes 
 the computation of the expression close to the use of the expression.
 More specifically, it the third flow equation calculates the \emph{Latest} property. An expression is 
@@ -168,7 +169,8 @@ Through the fourth and final flow equation, the algorithm determines if it is ne
 temporary at a point \emph{p} for the expression. The property is known as \emph{Isolated}. An expression
 is \emph{Isolated} at a point if it is optimal, and the value of the expression is only used immediately 
 after the point. Therefore, allocation of temporaries at \emph{Isolated} points is avoided.\\
-\textcolor{red}{space here}In summary, the four flow equations provide computationally optimal 
+
+In summary, the four flow equations provide computationally optimal 
 placement points which require the shortest lifetimes for the temporary variables introduced.
 
 \begin{flushleft}
@@ -179,7 +181,7 @@ placement points which require the shortest lifetimes for the temporary variable
 \textbf{\large{Value Numbering}}
 \end{flushleft}
 
-Prior research \textcolor{red}{citation} has shown that value numbering can increase opportunities for PRE.
+Prior research \cite{Briggs2} has shown that value numbering can increase opportunities for PRE.
 LLVM presently has a GVN-PRE pass which exploits this. However, value numbering in 
 GVN-PRE is tightly coupled with the code for removing redundancies, and hence
 we were not able to use the same for our code. We wrote our own value numbering
@@ -261,7 +263,7 @@ representation in SSA form then case 2 becomes an impossibility (by guarantees o
 \begin{flushleft}
 \textbf{\large{Value-Number driven code motion}}
 \end{flushleft}
-We initially implemented the flow equations from the Lazy Code Motion paper. \textcolor{red}{citation}. 
+We initially implemented the flow equations from the Lazy Code Motion paper \cite{Knoop}.
 This set included a total of 13 bit vectors for each basic block - 2 for block local
 properties ANTLOC and TRANSP, and 11 for global properties. These equations,
            however, could only be applied to single instruction basic blocks.
@@ -283,8 +285,15 @@ approach is that we could miss opportunities for loop invariant code motion. As 
       solution, we extend the bit vector to include value numbers which have
       only a single expression linked to them but only if the expression is
       inside a loop. Note that we still exclude the cases where the expression
-      is not part of a loop. \textcolor{red}{fig num.} quantifies the savings we observe using the LLVM
+      is not part of a loop. Figure \ref{fig:barC} quantifies the savings we observe using the LLVM
 multi-source package as testbed.
+
+\begin{figure}[htbp]
+ \begin{center}
+  \includegraphics[scale=0.4]{Figs/barC} 
+ \end{center}
+ \label{fig:barC} 
+\end{figure}
 
 
 \begin{flushleft}
@@ -380,40 +389,187 @@ value number vn.  We then clone one of these expressions (called provider)
 \textbf{\Large{Testing}}
 \end{flushleft}
 
-Apart from the small test cases which we created in phase-1, we have been able to 
-successfully test our PRE pass on real codes from the LLVM test-suite. Specifically, we have
-completed the testing for 75 benchmarks from LLVM single-source package \emph{"test-suite/SingleSource/Benchmarks/"} for correctness and performance. Correctness is checked by
-comparing the output of the binary optimized with our PRE pass with the reference output 
-provided along with benchmarks. All benchmarks pass the correctness test. For performance, 
-we compile the codes with and without the PRE pass and take the ratio of the run-times on 
-the hardware. Figure 4 shows the S-curve for performance. For 55/75 benchmarks, our pass improves 
-the run time by varying amounts (upto 67\%). Performance drops for few benchmarks, but the degradation is bound by 8\%.
+\begin{flushleft}
+\textbf{\normalsize{LLVM Single source \& Multi source}}
+\end{flushleft}
+We have been able to successfully test our PRE pass on real codes from the LLVM
+test-suite.  Specifically, we have completed the testing for $53$ benchmarks
+from LLVM single-source and $46$ benchmarks from LLVM Multisource packages for
+correctness and performance. Correctness is checked by comparing the output of
+the binary optimized with our PRE pass with the reference output provided along
+with benchmarks. All benchmarks pass the correctness test. For performance, we
+compile the codes with LLVM's existing GVN based PRE, with our version of PRE
+(which we will henceforth refer to as LCM PRE ) and without the PRE pass and
+take the ratios of runtimes ( Base to LCM and GVN to LCM) on the hardware.
+Figures \ref{fig:6} \& \ref{fig:7} shows the S-curves for performance for the above
+benchmarks.  For 55/75 benchmarks, our pass improves the run time by varying
+amounts (upto 67\%). Performance drops for few benchmarks, but the degradation
+is bound by 8\%.
 
+\begin{figure}
+\begin{tabular}{c c}
+  \scalebox{0.75}{
+      \begin{tikzpicture}
+      \begin{axis}[
+        xlabel=Benchmark number,
+        ylabel=Speedup,
+        ymax=2.0, ymin=0.0, xmax=52,
+        x tick label style={black},
+        grid=both,xmajorgrids=false,
+        ]
+      \addplot table [y=BASE_LCM_SS, x=N]{Data/data_ss.dat};
+      \addlegendentry {$\text{Speedup } = \frac{BaseTime}{LcmTime}$}
+      \end{axis}
+      \end{tikzpicture}
+  }
+&
+  \scalebox{0.75}{
+      \begin{tikzpicture}
+      \begin{axis}[
+        xlabel=Benchmark number,
+        ylabel=Speedup,
+        ymax=2.0, ymin=0.0, xmax=52,
+        x tick label style={black},
+        grid=both,xmajorgrids=false,
+        ]
+    \addplot table [y=GVN_LCM_SS, x=N]{Data/data_ss.dat};
+    \addlegendentry {$\text{Speedup } = \frac{GvnTime}{LcmTime}$}
+      \end{axis}
+      \end{tikzpicture}
+}
+\\
+\end{tabular}
+\label{fig:6}
+\caption{Performance evaluation with LLVM SingleSource Benchmark}
+\end{figure}
+
+
+\begin{figure}
+\begin{tabular}{c c}
+  \scalebox{0.75}{
+      \begin{tikzpicture}
+      \begin{axis}[
+        xlabel=Benchmark number,
+        ylabel=Speedup,
+        ymax=2.0, ymin=0.0, xmax=45,
+        x tick label style={black},
+        grid=both,xmajorgrids=false,
+        ]
+      \addplot table [y=BASE_LCM_MS, x=N]{Data/data_ms.dat};
+      \addlegendentry {$\text{Speedup } = \frac{BaseTime}{LcmTime}$}
+      \end{axis}
+      \end{tikzpicture}
+  }
+&
+  \scalebox{0.75}{
+    \begin{tikzpicture}
+    \begin{axis}[
+      xlabel=Benchmark number,
+      ylabel=Speedup,
+      ymax=2.0, ymin=0.0, xmax=45,
+      x tick label style={black},
+      grid=both,xmajorgrids=false,
+    ]
+    \addplot table [y=GVN_LCM_MS, x=N]{Data/data_ms.dat};
+    \addlegendentry {$\text{Speedup } = \frac{GvnTime}{LcmTime}$}
+\end{axis}
+\end{tikzpicture}
+  }
+\\
+\end{tabular}
+\label{fig:7}
+\caption{Performance evaluation with LLVM MultiSource Benchmark}
+\end{figure}
+
+
+\begin{flushleft}
+\textbf{\normalsize{Spec2006 Benchmark}}
+\end{flushleft}
+To test our implementation, we ported the spec2006 benchmark to the LLVM testing 
+infrastructure and made the runs. Our runs are made of specint and specfp portions
+of the benchmark. Folowing is the link which lists all the inputs that we tried 
+to run those benchmarks.
+\url{http://boegel.kejo.be/ELIS/spec_cpu2006/spec_cpu2006_command_lines.html}
+
+As before, we compile the codes with (1) LLVM’s existing GVN based PRE, (2)with
+our LCM PRE and  (3) without the PRE pass and take the ratios of runtimes (
+    Base to LCM and GVN to LCM) on the hardware. Figures \ref{fig:8} shows the
+S-curves for performance.
+
+We found that 15/35 benchmarks, our pass improves the run time by varying
+amounts (upto 52\% w.r.t Base and 34\% for Gvn). Performance drops for few benchmarks, but the degradation
+is bound by 8\% for Base and 7\% for Gvn.
+
+\begin{figure}
+\begin{tabular}{c c}
+  \scalebox{0.75}{
+      \begin{tikzpicture}
+      \begin{axis}[
+        xlabel=Benchmark number,
+        ylabel=Speedup,
+        ymax=2.0, ymin=0.0, xmax=38,
+        x tick label style={black},
+        grid=both,xmajorgrids=false,
+        ]
+      \addplot table [y=BASE_LCM, x=N]{Data/data_spec_int.dat};
+      \addlegendentry {$\text{Speedup } = \frac{BaseTime}{LcmTime}$}
+      \end{axis}
+      \end{tikzpicture}
+  }
+&
+  \scalebox{0.75}{
+    \begin{tikzpicture}
+    \begin{axis}[
+      xlabel=Benchmark number,
+      ylabel=Speedup,
+      ymax=2.0, ymin=0.0, xmax=38,
+      x tick label style={black},
+      grid=both,xmajorgrids=false,
+    ]
+    \addplot table [y=GVN_LCM, x=N]{Data/data_spec_int.dat};
+    \addlegendentry {$\text{Speedup } = \frac{GvnTime}{LcmTime}$}
+\end{axis}
+\end{tikzpicture}
+  }
+\\
+\end{tabular}
+\label{fig:8}
+\caption{Performance evaluation with SPEC 2006}
+\end{figure}
+
+
+Following Table \ref{tab:1} is the measurements from the top three performers from each of SingleSource, MultiSource 
+and SPEC\-2006 benchmarks.
+
+\begin{figure}[h]
+\centering
+\begin{tabular}{|l|l|l|l|l|l|}
+\hline
+\multicolumn{1}{|c|}{Benchmark Name}          & \begin{tabular}[c]{@{}l@{}}Base Pre \\ Time (B)\end{tabular} & \begin{tabular}[c]{@{}l@{}}LCM Pre \\ Time(L)\end{tabular} & \multicolumn{1}{c|}{\begin{tabular}[c]{@{}c@{}}GVN Pre \\ Time(G)\end{tabular}} & B/L   & G/L   \\ \hline
+SingleSource/Benchmarks/Dhrystone/fldry       & 5.405                                                        & 4.965                                                      & 5.263                                                                           & 1.088 & 1.060 \\ \hline
+SingleSource/Benchmarks/Misc/oourafft         & 5.112                                                        & 4.281                                                      & 4.286                                                                           & 1.194 & 1.001 \\ \hline
+SingleSource/Benchmarks/Misc/lowercase        & 40.795                                                       & 28.612                                                     & 28.628                                                                          & 1.425 & 1.000 \\ \hline
+MultiSource/Benchmarks/TSVC/NodeSplitting-flt & 7.378                                                        & 6.706                                                      & 5.398                                                                           & 1.100 & 0.804 \\ \hline
+MultiSource/Benchmarks/TSVC/Expansion-flt     & 6.339                                                        & 5.734                                                      & 5.308                                                                           & 1.105 & 0.925 \\ \hline
+MultiSource/Benchmarks/TSVC/Expansion-dbl     & 7.134                                                        & 5.787                                                      & 5.355                                                                           & 1.232 & 0.925 \\ \hline
+SPECINT2006/456.hmmer                         & 1547.77                                                      & 1019.885                                                   & 993.581                                                                         & 1.517 & 0.974 \\ \hline
+SPECINT2006/403.gcc                           & 0.007                                                        & 0.005                                                      & 0.006                                                                           & 1.4   & 1.2   \\ \hline
+SPECINT2006/464.h264ref                       & 185.551                                                      & 168.563                                                    & 163.363                                                                         & 1.100 & 0.969 \\ \hline
+\end{tabular}
+\label{tab:1}
+\end{figure}
+
+
+\cmnt{
 Apart from measured runtime on the hardware, another metric to quantify the
 effects of our optimization pass is the dynamic instruction count. We use Pin
 (dynamic binary instrumentation tool) from Intel for this purpose. We have
 written a very simple Pintool to dump the dynamic instruction count of each
-type of instruction. We would present supporting data from Pin our final
+type of instruction. We would present suppo6rting data from Pin our final
 report.
 %\pgfplotstabletypeset{Data/data.dat}
 
-\begin{figure}
-\begin{center}
-\begin{tikzpicture}
-\begin{axis}[
-  xlabel=Benchmark number,
-  ylabel=Base Time/ PRE Time,
-  ymax=1.7, ymin=0.8, xmax=80,
-  x tick label style={black},
-  grid=both,xmajorgrids=false,
-  ]
-\addplot table [y=T, x=N]{Data/data.dat};
-\end{axis}
-\end{tikzpicture}
-\end{center}
-\label{fig:6}
-\caption{S-curve for performance improvements over Baseline (no PRE)}
-\end{figure}
+
 
 \begin{flushleft}
 \textbf{\Large{{Conclustion and Future Work }}}
@@ -434,6 +590,7 @@ In this phase, we were able to code the missing pieces of our PRE algorithm,
    outliers, we hope to present supporting data to reason about the performance
    change. Pin tool analysis and the statistics dumped by our PRE pass would be
    used for this.
+}
 
 \input{appendix_report.tex}
    
