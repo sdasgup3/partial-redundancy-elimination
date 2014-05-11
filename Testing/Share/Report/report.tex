@@ -71,12 +71,15 @@ address: \texttt{gangwan2@illinois.edu}}}
 \end{titlepage}
 
 \begin{flushleft}
-\textbf{\Large{Problem Statement \& Motivation}}
+\textbf{\Large{1. Problem Statement \& Motivation}}
 \end{flushleft}
 Partial Redundancy Elimination (PRE) is a compiler optimization that eliminates
 expressions that are redundant on some but not necessarily all paths through a
-program. PRE is a powerful technique since it subsumes Common Subexpression
-Elimination (CSE) and Loop Invariant Code Motion (LICM).
+program. In this project, we implemented a PRE optimization pass in LLVM 
+and measured results on a variety of applications. We chose PRE because
+it's a powerful technique that subsumes Common Subexpression Elimination 
+(CSE) and Loop Invariant Code Motion (LICM), and hence has a potential to 
+greatly improve performance.
 
 In the example below, the computation of the expression (a + b) is partially
 redundant because it is redundant on the path $1 \rightarrow 2 \rightarrow 5$,
@@ -101,13 +104,10 @@ redundant because it is redundant on the path $1 \rightarrow 2 \rightarrow 5$,
 \end{lstlisting}
 \end{center}
 
-\textcolor{red}{TO DO: Helps in loop invariant code motion}
 
 \begin{flushleft}
-\textbf{\Large{Related Work}}
+\textbf{\Large{2. Related Work}}
 \end{flushleft}
-Below we summarize the relevant literature and outline our approach to
-implementing a PRE transformation pass in LLVM (\url{http://llvm.org/}).
 
 \begin{description}
 \item [Partial Redundancy Elimination]    \hfill \\
@@ -130,7 +130,7 @@ the best of the previously mentioned approaches. Cooper et al.
 \cite{CVDC} show how to incorporate value
 information in the data flow equations of LCM to eliminate more redundancies.
 
-\item [LLVM] \hfill \\
+\item [PRE in LLVM] \hfill \\
 Since LLVM is a Static Single Assignment (SSA) based representation, algorithms
 based on identifying expressions which are lexically identical or have the same
 static value number may fail to capture some redundancies.
@@ -144,55 +144,52 @@ on SSA.
 \end{description}
 
 \begin{flushleft}
-\textbf{\Large{Our Aproach}}
+\textbf{\Large{3. Algorithm Overview}}
 \end{flushleft}
 
-\begin{itemize}
-\item  In this project, we implemented the iterative bit-vector
-data flow algorithm inspired by LCM \cite{Knoop}. It uses five data flow equations to
-identify optimal placement points for hoisting. The first two - anticipatable
-and earliest - calculate the computationally optimal placement and the next
-three - latest (in 2 steps) and isolated - calculate the lifetime optimal
-placement.  The final step of the algorithm entails inserting new code and
-removing redundant expressions. All critical edges\footnote{Edges from blocks
-  with more than one successor to blocks with more than one predecessor } are
-  removed prior to starting LCM.
+Our algorithm for PRE is a slightly modified version of the iterative bit-vector data flow
+algorithm by LCM \cite{Knoop}. It uses four data flow equations to identify for each expression
+in the program, the optimal evaluation point. The first flow equation calculates down-safe (anticipatible) points 
+for an expression. An expression is said to be down-safe at a point \emph{p} if computing the 
+expression at \emph{p} woud be useful along any path from \emph{p}. The second flow equation 
+calculates up-safe (available) points. An expression is up-safe at a point \emph{p} is it has been computed
+on every path from the entry node to \emph{p} and not killed after the last computatioon on each 
+path. Using these, the algorithm calculates the \emph{Earliest} property. An expression is said to
+be \emph{Earliest} at a point \emph{p} if there doesn't exist an earlier point where the computation
+of the expression is both down-safe and produces the correct values. Such points are known
+as \emph{computationally optimal} placement points. \\
+\textcolor{red}{space here}Evaluating the expression at computationally optimal points could negatively impact
+performance due to increased register pressure. Therefore, the latter half of the LCM algorithm pushes 
+the computation of the expression close to the use of the expression.
+More specifically, it the third flow equation calculates the \emph{Latest} property. An expression is 
+said to be \emph{Latest} at a point \emph{p} if it is computationally optimal at \emph{p}, and on every
+path from \emph{p}, any later optimal point on the path would be after some use of the expression.
+Through the fourth and final flow equation, the algorithm determines if it is necessary to allocate a 
+temporary at a point \emph{p} for the expression. The property is known as \emph{Isolated}. An expression
+is \emph{Isolated} at a point if it is optimal, and the value of the expression is only used immediately 
+after the point. Therefore, allocation of temporaries at \emph{Isolated} points is avoided.\\
+\textcolor{red}{space here}In summary, the four flow equations provide computationally optimal 
+placement points which require the shortest lifetimes for the temporary variables introduced.
 
-\item As suggested in \cite{Briggs2}, running two pre-passes produces code more
-amenable to PRE. We plan to use an already existing LLVM pass (-reassociate)
-  for Global Reassociation.  We have implemented our own pass for Value Numbering
-  using the approach outlined in \cite{Cooper95scc-basedvalue}. This is based
-  on Tarjan's SCC algorithm. It works on the strongly connected components of
-  the SSA graph as opposed to the CFG. The algorithm combines the ability to
-  perform constant folding and algebraic simplifications with the ability to
-  make optimistic assumptions (and later disprove them). Because of this, it
-  can find at least as many equivalences as the hashing or partitioning based
-  approach.
-
-\item To incorporate information from the Value Numbering pass into the LCM pass,
-  we modified the flow equations to work on \emph{values} rather than
-  lexical names. \cite{CVDC} details how the flow equations
-  change for a variant of LCM. We make the observation that only ANTLOC and
-  TRANSP predicates would need to be suitably modified to handle \emph{values}.
-\end{itemize}
-
-The following is the detailed explanation od our approach.
+\begin{flushleft}
+\textbf{\Large{4. Implementation Details}}
+\end{flushleft}
 
 \begin{flushleft}
 \textbf{\large{Value Numbering}}
 \end{flushleft}
 
-Prior research has shown that value numbering can increase opportunities for PRE.
+Prior research \textcolor{red}{citation} has shown that value numbering can increase opportunities for PRE.
 LLVM presently has a GVN-PRE pass which exploits this. However, value numbering in 
 GVN-PRE is tightly coupled with the code for removing redundancies, and hence
-we deem it not useful for our purposes. We have written our own value numbering
-pass which feeds expression value numbers to the PRE stage. It should be noted,
-     however, that we do not implement value numbering from scratch and use an
-     old (now defunct) LLVM pass as a starting point. Most importantly, we
-     augment the basic value numbering in the following ways - 
+we were not able to use the same for our code. We wrote our own value numbering
+pass which fed expression value numbers to the PRE stage. It should be noted,
+however, that we did not implement value numbering from scratch and used an
+old (now defunct) LLVM pass as a starting point. Most importantly, we
+augmented the basic value numbering in the following ways - 
      
 \begin{itemize}     
-  \item Add the notion of leader expression (described below), with associated
+  \item Added the notion of leader expression (described below), with associated
   data structures and functions. 
   \item Functionality to support value-number-based bitvectors rather than
   expression-name-based bitvectors. 
@@ -206,9 +203,13 @@ pass which feeds expression value numbers to the PRE stage. It should be noted,
   \item (Optimization 4) If the incoming expressions to a \texttt{Phi} node have the same value 
   number, then the \texttt{Phi} node gets that same value number
 \end{itemize}  
-  As per our testing, optimizations 2 and 3 are also done by the reassociation
-  pass in LLVM. In our final code we omit our implementation and rely on the
-  more robust LLMV pass. Optimizations 1 and 4, however, are still our contribution.
+
+  Reassociation has also been shown to make the code more amenable for PRE. It refers to 
+using associativity, commutativity and distribitivity to divide expressions into parts that are
+constant, loop invariant and variable. We used an already existing LLVM pass (-reassociate)
+  for Global Reassociation. As per our testing, optimizations 2 and 3 (above) are also done by 
+ this pass, and hence, we disabled our version for the more robust LLVM version. Optimizations 1 and 4, 
+however, are still our contribution.
 
 \begin{flushleft}
 \textbf{\large{Notion Of Leader Expression}}
@@ -242,7 +243,7 @@ representation in SSA form then case 2 becomes an impossibility (by guarantees o
                noted that even though case 2 above is not possible in SSA,
                the source code redundancies  of this type transform into that
                of type case 4. Figure \ref{fig:0} presents an illustration of the same. \textbf{This is not handled
-               in the current implementation.} 
+               in our current implementation.} 
 \begin{figure}[htbp]
   \begin{center}
     \scalebox{.6}{\begin{tabular}{@{}p{12cm}@{ } @{ }p{12cm}@{}}
@@ -260,9 +261,8 @@ representation in SSA form then case 2 becomes an impossibility (by guarantees o
 \begin{flushleft}
 \textbf{\large{Value-Number driven code motion}}
 \end{flushleft}
-We implement an iterative bit vector data flow algorithm for PRE. We initially
-implemented the flow equations from the Lazy Code Motion paper. This set
-included a total of 13 bit vectors for each basic block - 2 for block local
+We initially implemented the flow equations from the Lazy Code Motion paper. \textcolor{red}{citation}. 
+This set included a total of 13 bit vectors for each basic block - 2 for block local
 properties ANTLOC and TRANSP, and 11 for global properties. These equations,
            however, could only be applied to single instruction basic blocks.
            We therefore, derived a new set of equations which are motived by
@@ -271,14 +271,21 @@ properties ANTLOC and TRANSP, and 11 for global properties. These equations,
            entails a total of 19 bit vectors for each basic block in our
            current implementation - 3 for block local properties ANTLOC,
            TRANSP, XCOMP and 16 for global properties.  We include the
-           data flow framework, and show how each PRE equation maps to the
-           framework. We call the algorithm value-number driven because each
+           data flow framework in the appendix, and show how each PRE equation 
+	  maps to the framework. We call the algorithm value-number driven because each
            slot in each of the bit vectors is reserved for a particular value
            number rather than a particular expression. Also, we make the
            observation that a large number of expressions in the program only
-           occur once, and are not useful for PRE. Hence to further optimize
+           occur once, and are not useful for PRE. Therefore, to further optimize
            for space and time, we only give bit vector slots to value numbers
-           which have more than one expression linked to them.
+           which have more than one expression linked to them. A downside to this
+approach is that we could miss opportunities for loop invariant code motion. As a
+      solution, we extend the bit vector to include value numbers which have
+      only a single expression linked to them but only if the expression is
+      inside a loop. Note that we still exclude the cases where the expression
+      is not part of a loop. \textcolor{red}{fig num.} quantifies the savings we observe using the LLVM
+multi-source package as testbed.
+
 
 \begin{flushleft}
 \textbf{\large{Local CSE}}
@@ -314,44 +321,22 @@ In appendix D, we have shown that in Figure\ref{fig:1}
 and Figure\ref{fig:2}, the optimizations performed by our PRE pass. The intention here is to
   show how our version of PRE performed on the computations $a + b$ \& $a < b$;
 
-One point about the insertion step is worth mentioning. Suppose that an
-expression, with value number vn, is to be inserted in a basic block.
-Although our algorithm can handle all cases, for simplicity, assume that the
-insertion point is the end of the basic block. To insert the expression we
-scan the list of the expressions in the whole function which have the same
-value number vn.  We then clone one of these expressions (called provider)
-  and place at the end of the basic block. The trivial case is when the the
-  provider is available in the same basic block. If however, the provider
-  comes from another basic block, then we need to ensure that the operands
-  of the provider dominate the basic block where we wish to insert the
-  expression in. Not being able to find a suitable provider is the only case
-  where we override the suggestion of the data flow analysis and not do PRE
-  for that expression only. PRE for other expressions proceeds as usual. Our
-  initial testing suggests that this is a very rare occurrence. 
+\begin{flushleft}
+\textbf{\Large{5. Miscellaneous}}
+\end{flushleft}
 
 \begin{flushleft}
-\textbf{\Large{Loop Invariant Code Motion}}
+\textbf{\large{Zero-trip Loops}}
 \end{flushleft}
-We first address a question raised in the phase-1 report. We had previously
-mentioned that to optimize for space and time, we provide a bit vector slot only to
-value numbers which have more than one expression linked to them. With this,
-      however, we could miss opportunities for loop invariant code motion. As a
-      solution, we extend the bit vector to include value numbers which have
-      only a single expression linked to them but only if the expression is
-      inside a loop. Note that we still exclude the cases where the expression
-      is not part of a loop, and expect reasonable space and time savings.  
-
-      The second issue we resolved with respect to loop invariant code motion was 
-      checking for zero-trip loops. Our PRE algorithm would move the loop invariant
+Our algorithm moves the loop invariant
       computations to the loop pre-header only if placement in the loop pre-header is 
       anticipatible. Such a pre-header is always available for \emph{do-while} loops, 
       but not for \emph{while} and \emph{for} loops. Hence, a modification is required
       to the structure of \emph{while} and \emph{for} loops which peels off the first
       iteration of the loop, protected by the loop condition. This alteration provides 
       PRE with a suitable loop pre-header to hoist loop independent computations to.
-      In Figure \ref{fig:5} we show the CFG changes. Fortunately, we were able to 
-      achieve this effect using an existing LLVM pass \emph{-loop-rotate} rather than
-      having to write it ourselves.
+      In Figure \ref{fig:5} we show the CFG changes. We achieved this effect using an 
+      existing LLVM pass \emph{-loop-rotate}.
 
 \begin{figure}[htbp]
   \begin{center}
@@ -363,6 +348,32 @@ value numbers which have more than one expression linked to them. With this,
   \label{fig:5} 
   \end{figure}
 
+\begin{flushleft}
+\textbf{\large{Critical Edges}}
+\end{flushleft}
+
+A critical edge in a flow graph is an edge from a node with multiple successors to a node with multiple predecessors. Splitting such edges and inserting dummy nodes aids PRE by offering more anticipatible points. We used an existing LLVM pass (BreakCriticalEdges) for the same. In many cases, however, the dummy nodes created by this pass do not hold any computation after PRE. We used \emph{-simplifycfg} to clean up the mess created by BreakCriticalEdges.
+
+
+\begin{flushleft}
+\textbf{\large{Unresolved Issues}}
+\end{flushleft}
+There were a couple of issues on which we would have liked to spend more time. The first is redundancy 
+elimination for expressions which are lexically diffferent in SSA, and have different value numbers. The 
+second issue pertains to the insertion step of our algorithm and needs slightly detailed explanation.
+Suppose that an expression, with value number vn, is to be inserted in a basic block.
+Although our algorithm can handle all cases, for simplicity, assume that the
+insertion point is the end of the basic block. To insert the expression we
+scan the list of the expressions in the whole function which have the same
+value number vn.  We then clone one of these expressions (called provider)
+  and place at the end of the basic block. The trivial case is when the the
+  provider is available in the same basic block. If however, the provider
+  comes from another basic block, then we need to ensure that the operands
+  of the provider dominate the basic block where we wish to insert the
+  expression in. Not being able to find a suitable provider is the only case
+  where we override the suggestion of the data flow analysis and not do PRE
+  for that expression only. PRE for other expressions proceeds as usual. Our
+  exhaustive testing on multiple suites suggests that this is a very rare occurrence. 
 
 \newpage  
 \begin{flushleft}
