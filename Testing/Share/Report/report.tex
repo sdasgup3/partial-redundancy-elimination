@@ -295,7 +295,7 @@ over 80\%.
  \begin{center}
   \includegraphics[scale=0.4]{Figs/barC} 
  \end{center}
- \label{fig:barC} 
+ \caption{\label{fig:barC}} 
 \end{figure}
 
 
@@ -331,8 +331,8 @@ To maintain compatibility with SSA, we perform insertion and replacement
              necessary ${\Phi}$ instructions
 \end{itemize}  
 
-In appendix D, we have shown in Figure\ref{fig:1}
-and Figure\ref{fig:2}, the optimizations performed by our PRE pass. The intention here is to
+In appendix D, we have shown in Figure \ref{fig:1}
+and Figure \ref{fig:2}, the optimizations performed by our PRE pass. The intention here is to
   show how our version of PRE performed on the computations $a + b$ \& $a < b$;
 
 \begin{flushleft}
@@ -397,8 +397,8 @@ value number vn.  We then clone one of these expressions (called provider)
 
 While working on the project, we wrote 25 small test cases to capture the intricate movements
 of expressions in the partial redundancy elimination algorithm. Most of these contrived test cases can 
-be found on our project Github link \textcolor{red}{(link here or later?)}. For evaluation on real life applications, we
-chose the 3 different suites - LLVM SingleSource, LLVM MultiSource, SPEC2006. For orrectness, we checked the 
+be found on our project Github link \url{https://github.com/sdasgup3/PRE}. For evaluation on real life applications, we
+chose the 3 different suites - LLVM SingleSource, LLVM MultiSource, SPEC2006. For correctness, we checked the 
 output of the binary optimized with our PRE pass with the provided reference output. All benchmarks passed the 
 correctness test. For each suite, we present two sets of performance results. The first set compares the performance
 of binaries optimized with our version of PRE (henceforth referred to as LCM-PRE) with binaries without PRE
@@ -410,17 +410,27 @@ seconds are not accounted for. The next two sub-sections describe the
 performance S-curves, following which we summarize in a table, the absolute
 run-times for top three benchmarks from each suite. For a meaningful comparison,
 we use the same set of optimization knobs for BASE-PRE, GVN-PRE and LCM-PRE.
-This is also shown in the table. \textcolor{red}{add the knobs}
+This is also shown in the table. 
 
 \begin{flushleft}
 \textbf{\normalsize{LLVM Single source \& Multi source}}
 \end{flushleft}
 
-We ran on $45$ benchmarks from the SingleSource package. Figures \ref{fig:6} \textcolor{red}{a??} shows the S-curve for BASE-PRE time over LCM-PRE time. For most of the benchmarks (40/45) we either increase performance (upto 42\%) or maintain the same level. $5$ benchmarks show slight degradation which is bound by 6.5\%. Figure \ref{fig:7} shows the S-curve for GVN-PRE time over LCM-PRE time. It is heartening to beat GVN-PRE in a few cases. \\
-\textcolor{red}{space here}Results for the MultiSource follow a similar trend. Out of the $45$ bechmarks from this package, $41$ show improvement (upto 23\%) or maintain same performance for BASE-PRE time over LCM-PRE time \textcolor{red}{figure}. GVN-PRE time over LCM-PRE time is shown in \textcolor{red}{figure}.
+We ran on $45$ benchmarks from the SingleSource package. Figures \ref{fig:6}(a)
+shows the S-curve for BASE-PRE time over LCM-PRE time. For most of the
+benchmarks (40/45) we either increase performance (upto 42\%) or maintain the
+same level. $5$ benchmarks show slight degradation which is bound by 6.5\%.
+Figure \ref{fig:6}(b) shows the S-curve for GVN-PRE time over LCM-PRE time. It is
+heartening to beat GVN-PRE in a few cases. 
+
+Results for the MultiSource follow a similar trend. Out of the $45$ bechmarks
+from this package, $41$ show improvement (upto 23\%) or maintain same
+performance for BASE-PRE time over LCM-PRE time \ref{fig:7}(a).
+GVN-PRE time over LCM-PRE time is shown in \ref{fig:7}(b).
 
 
 \begin{figure}
+\centering
 \begin{tabular}{c c}
   \scalebox{0.75}{
       \begin{tikzpicture}
@@ -452,9 +462,10 @@ We ran on $45$ benchmarks from the SingleSource package. Figures \ref{fig:6} \te
       \end{tikzpicture}
 }
 \\
+\qquad (a) & \quad (b) \\    
 \end{tabular}
-\label{fig:6}
 \caption{Performance evaluation with LLVM SingleSource Benchmark}
+\label{fig:6}
 \end{figure}
 
 
@@ -488,21 +499,29 @@ We ran on $45$ benchmarks from the SingleSource package. Figures \ref{fig:6} \te
     \addlegendentry {$\text{Speedup } = \frac{GvnTime}{LcmTime}$}
 \end{axis}
 \end{tikzpicture}
-  }
-\\
+  } \\
+\qquad (a) & \quad (b) \\    
 \end{tabular}
-\label{fig:7}
 \caption{Performance evaluation with LLVM MultiSource Benchmark}
+\label{fig:7}
 \end{figure}
 
 
 \begin{flushleft}
 \textbf{\normalsize{Spec2006 Benchmark}}
 \end{flushleft}
-We augmented our testing infrastructure to support the the SPEC2006 suite. Both SPECINT and SPECFP were tested. We, however, had to limit our testing to C/C++ benchmarks, and leave out Fortran. Getting SPEC-Fortran benchmarks to
-run inside LLVM needs extra support. We take our inputs for the SPEC runs from the following source - \url{http://boegel.kejo.be/ELIS/spec_cpu2006/spec_cpu2006_command_lines.html}
+We augmented our testing infrastructure to support the the SPEC2006 suite. Both
+SPECINT and SPECFP were tested. We, however, had to limit our testing to C/C++
+benchmarks, and leave out Fortran. Getting SPEC-Fortran benchmarks to run
+inside LLVM needs extra support. We take our inputs for the SPEC runs from the
+following source -
+\url{http://boegel.kejo.be/ELIS/spec_cpu2006/spec_cpu2006_command_lines.html}
 
-Out of the $35$ benchmarks from SPEC, $27$ show improvement (upto 52\%) or maintain same performance for BASE-PRE time over LCM-PRE time, while degradation for the rest is bound by 10\% Figures \ref{fig:8} \textcolor{red}{a??}. Our pass triumphs over GVN-PRE for quite a few cases here as well. \textcolor{red}{figure}.
+Out of the $35$ benchmarks from SPEC, $27$ show improvement (upto 52\%) or
+maintain same performance for BASE-PRE time over LCM-PRE time, while
+degradation for the rest is bound by 10\% Figures \ref{fig:8}(a). 
+Our pass triumphs over GVN-PRE for quite a few cases here
+as well as shown in \ref{fig:8}(b). 
 
 \begin{figure}
 \begin{tabular}{c c}
@@ -536,32 +555,49 @@ Out of the $35$ benchmarks from SPEC, $27$ show improvement (upto 52\%) or maint
 \end{tikzpicture}
   }
 \\
+\qquad (a) & \quad (b) \\    
 \end{tabular}
-\label{fig:8}
 \caption{Performance evaluation with SPEC 2006}
+\label{fig:8}
 \end{figure}
 
 
-Following Table \ref{tab:1} is the measurements from the top three performers from each of SingleSource, MultiSource 
+Table \ref{tab:1} shoews the Optimization switches used for various PRE passes.
+Table \ref{tab:2} is the measurements from the top three performers from each of SingleSource, MultiSource 
 and SPEC\-2006 benchmarks.
 
-\begin{figure}[h]
-\centering
-\begin{tabular}{|l|l|l|l|l|l|}
+\begin{table}[h]
+\begin{tabular}{|c|c|}
 \hline
-\multicolumn{1}{|c|}{Benchmark Name}          & \begin{tabular}[c]{@{}l@{}}Base Pre \\ Time (B)\end{tabular} & \begin{tabular}[c]{@{}l@{}}LCM Pre \\ Time(L)\end{tabular} & \multicolumn{1}{c|}{\begin{tabular}[c]{@{}c@{}}GVN Pre \\ Time(G)\end{tabular}} & B/L   & G/L   \\ \hline
-SingleSource/Benchmarks/Dhrystone/fldry       & 5.405                                                        & 4.965                                                      & 5.263                                                                           & 1.088 & 1.060 \\ \hline
-SingleSource/Benchmarks/Misc/oourafft         & 5.112                                                        & 4.281                                                      & 4.286                                                                           & 1.194 & 1.001 \\ \hline
-SingleSource/Benchmarks/Misc/lowercase        & 40.795                                                       & 28.612                                                     & 28.628                                                                          & 1.425 & 1.000 \\ \hline
-MultiSource/Benchmarks/TSVC/NodeSplitting-flt & 7.378                                                        & 6.706                                                      & 5.398                                                                           & 1.100 & 0.804 \\ \hline
-MultiSource/Benchmarks/TSVC/Expansion-flt     & 6.339                                                        & 5.734                                                      & 5.308                                                                           & 1.105 & 0.925 \\ \hline
-MultiSource/Benchmarks/TSVC/Expansion-dbl     & 7.134                                                        & 5.787                                                      & 5.355                                                                           & 1.232 & 0.925 \\ \hline
-SPECINT2006/456.hmmer                         & 1547.77                                                      & 1019.885                                                   & 993.581                                                                         & 1.517 & 0.974 \\ \hline
-\textcolor{red} {too low run time}SPECINT2006/403.gcc                           & 0.007                                                        & 0.005                                                      & 0.006                                                                           & 1.4   & 1.2   \\ \hline
-SPECINT2006/464.h264ref                       & 185.551                                                      & 168.563                                                    & 163.363                                                                         & 1.100 & 0.969 \\ \hline
+Pass Name & OPT switches                                                  \\ \hline
+BASE-PRE  & -mem2reg -loop-rotate,-reassociate,-mem2reg -simplifycfg      \\ \hline
+LCM-PRE   & -mem2reg -loop-rotate,-reassociate -lcm,-mem2reg -simplifycfg \\ \hline
+GVN-PRE   & -mem2reg -loop-rotate,-reassociate -gvn,-mem2reg -simplifycfg \\ \hline
 \end{tabular}
-\label{tab:1}
-\end{figure}
+\caption{Optimization switches used for various PRE passes.} \label{tab:1}
+\end{table}
+
+\begin{figure}
+\centering
+\scalebox{.85}{
+  \begin{tabular}{|l|l|l|l|l|l|}
+  \hline 
+  \multicolumn{1}{|c|}{Benchmark Name}          & \begin{tabular}[c]{@{}l@{}}BASE-PRE \\ Time (B)\end{tabular} & \begin{tabular}[c]{@{}l@{}}LCM-PRE \\ Time(L)\end{tabular} & \multicolumn{1}{c|}{\begin{tabular}[c]{@{}c@{}}GVN-PRE \\ Time(G)\end{tabular}} & B/L   & G/L   \\ \hline \hline
+  \texttt{SingleSource/Benchmarks/Dhrystone/fldry}       & 5.405                                                        & 4.965                                                      & 5.263                                                                           & 1.088 & 1.060 \\ \hline
+  \texttt{SingleSource/Benchmarks/Misc/oourafft}         & 5.112                                                        & 4.281                                                      & 4.286                                                                           & 1.194 & 1.001 \\ \hline
+  \texttt{SingleSource/Benchmarks/Misc/lowercase}        & 40.795                                                       & 28.612                                                     & 28.628                                                                          & 1.425 & 1.000 \\ \hline
+  \texttt{MultiSource/Benchmarks/TSVC/NodeSplitting-flt} & 7.378                                                        & 6.706                                                      & 5.398                                                                           & 1.100 & 0.804 \\ \hline
+  \texttt{MultiSource/Benchmarks/TSVC/Expansion-flt}     & 6.339                                                        & 5.734                                                      & 5.308                                                                           & 1.105 & 0.925 \\ \hline
+  \texttt{MultiSource/Benchmarks/TSVC/Expansion-dbl}     & 7.134                                                        & 5.787                                                      & 5.355                                                                           & 1.232 & 0.925 \\ \hline
+  \texttt{SPECINT2006/456.hmmer}                         & 1547.77     & 1019.885  & 993.581      & 1.517 & 0.974 \\ \hline
+  \texttt{SPECINT2006/456.hmmer}                         &  715.641    &  521.318  & 455.754      & 1.372   & 0.874   \\ \hline
+  \texttt{SPECINT2006/464.h264ref}                       & 185.551     & 168.563   & 163.363      & 1.100 & 0.969 \\ \hline
+  \end{tabular}
+}
+\caption{Statistics of top $3$ performers from each of Single, Muti-source and
+  SPEC2006 benchmarks. Note that the two instances of the same testcase
+    \texttt{456.hmmer} belongs to different input parameters.} \label{tab:2}
+    \end{figure}
 
 \begin{flushleft}
 \textbf{\large{{Performance Analysis }}}
