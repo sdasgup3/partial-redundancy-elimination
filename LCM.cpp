@@ -34,6 +34,8 @@ STATISTIC(NumLCMCompInserted,  "[526] Number of computations INSERTED");
 STATISTIC(NumLCMCompReplaced,   "[526] Number of computations REPLACED");
 STATISTIC(NumLCMMaskedInserts,   "[526] Number of INSERTS masked out");
 STATISTIC(NumLoopCodeMotion,    "[526] Number of loop invariant code motion");
+STATISTIC(NumValueNumbers, "[526] Total count of distinct value numbers" );
+STATISTIC(BitVectorWidth, "[526] Value-numbers given a bit-vector slot");
 
 namespace {
   
@@ -91,11 +93,11 @@ namespace {
       uint32_t label;
 
       // This list captures the instructions which we need to delete as part of
-      // the PRE REPLACE stage
+      // the PRE-REPLACE stage
       std::vector<Instruction*> deadList;
       
-      // Each bitVector is only as wide as the number of values which occur 
-      // more than once in the program
+      // Each bitVector is only as wide as the number of value numbers which occur 
+      // more than once in the program (except if they are in a loop) 
       uint32_t bitVectorWidth;
 
       // Holds the new alloca instructions created for INSERT-REPLACE
@@ -105,7 +107,7 @@ namespace {
       // inserted
       SmallBitVector insertMask;
 
-      // functions 
+      // functions - description along with the definition 
       void performDFA() ;
       void initializeDFAFramework();
       void dumpSmallBitVector(SmallBitVector*);
@@ -154,6 +156,7 @@ bool LCM::runOnFunction(Function &F)
   bool Changed = false;
   uint32_t endCount, startCount = NumLCMCompInserted;
 
+  // 'rpo' is the interface theperform the value numbering. Do value numbering.
   rpo = new RPO(F,LI);
   rpo->performVN(); 
   rpo->print();  
@@ -173,14 +176,16 @@ bool LCM::runOnFunction(Function &F)
   performDFA();
   changeIR();
   
+  // handle stats
+  NumValueNumbers += rpo->getMaxValueNumber();  
+  BitVectorWidth += bitVectorWidth;
   NumLCMMaskedInserts += insertMask.count();
-  cleanUp();
-
   endCount = NumLCMCompInserted;
   assert(endCount >= startCount && "Stat counting error");
   if(!(endCount == startCount))
     Changed = true;
 
+  cleanUp();  // free-up memory
   return Changed;
 }
 
@@ -188,6 +193,9 @@ bool LCM::runOnFunction(Function &F)
  * Function :   performLocalCSE
  * Purpose  :   To do local CSE (on each BB)
 ********************************************************************/
+// Find all the instructions in a basic block which have the same value number.
+// Only the first one of these instructions is required, and the rest are marked
+// for deletion 
 void LCM::performLocalCSE() 
 {
   for (Function::iterator BI = Func->begin(), E = Func->end(); BI != E; ++BI) {
@@ -228,12 +236,11 @@ void LCM::performDFA() {
   initializeDFAFramework();
   
   // This function is responsible for calculating the local sets for each basic
-  // block, namely the transp and antloc bitvectors
+  // block, namely the transp, xcomp and antloc bitvectors
   performConstDFA();
   
   // This function calls the various data flow equations of LCM
   performGlobalDFA();
-
   printFlowEquations();
 }
 
@@ -255,12 +262,10 @@ void LCM::initializeDFAFramework() {
 
 /*******************************************************************
  * Function :   performConstDFA
- * Purpose  :   Calculate the Gen Kill for all the BBs
+ * Purpose  :   Calculate the local sets (Transp, Xcomp, Antloc) for all the BBs
 ********************************************************************/
 void LCM::performConstDFA()
 {
-
-  SmallBitVector random(bitVectorWidth, false);
 
   dfva* dfvaInstance;
   for (Function::iterator BB = Func->begin(), E = Func->end(); BB != E; ++BB) {
@@ -274,14 +279,15 @@ void LCM::performConstDFA()
 
 /*******************************************************************
  * Function :   calculateTrans
- * Purpose  :   if any operand of any of the leaders is defined in this BB 
- *              then TRANSP(BB) is false for the corresponding 
- *              value
+ * Purpose  :   Fill out the TRANSP bit-vector for the basic block
 ********************************************************************/
 SmallBitVector LCM::calculateTrans(BasicBlock* BB) {
 
   DEBUG(errs() << "Finding Trans BB\n");
 
+  // TRANSP for all the value-numbers is marked as true initially. It can only
+  // be changed to false for the basic block if the leader of that value-number 
+  // has either of its operands being defined in that basic block
   SmallBitVector returnValue(bitVectorWidth, true);
   std::vector<Value*> allLeaders = rpo->getAllLeaders();
 
@@ -305,29 +311,6 @@ SmallBitVector LCM::calculateTrans(BasicBlock* BB) {
       }
     }
   }
- 
-  /*
-   //  Less optimized way of doing the same work as the above for loop
-  for(uint32_t i = 0; i < bitVectorWidth; i++) {
-    uint32_t vn = rpo->getVNFromBVPos(i);
-    SmallVector<Value*, 8> equalValues;
-    Instruction* leader = cast<Instruction>(rpo->getLeader(vn));
-    rpo->getEqualValues(vn, equalValues);
-
-    for(SmallVectorImpl<Value *>::iterator I = equalValues.begin(), E = equalValues.end(); I!=E; ++I) {
-      Instruction* ins = cast<Instruction>(*I);
-
-      for (User::op_iterator OP = ins->op_begin(), E_OP = ins->op_end(); OP != E_OP; ++OP) 
-        if(Instruction *operandIns = dyn_cast<Instruction>(OP)) 
-          if(ins == leader && BB == operandIns->getParent()) {
-            returnValue[i] = false;
-            break;
-          }
-      
-      if(!returnValue[i])
-        break;
-    }
-  } */
 
   return returnValue;
 }
@@ -337,8 +320,8 @@ SmallBitVector LCM::calculateTrans(BasicBlock* BB) {
  * Purpose  :   defined(B) <intersection> transp(B)
  *              defined(B) = {v | v is generated in B}
 ********************************************************************/
-SmallBitVector LCM::calculateAntloc(BasicBlock* BB)
-{
+SmallBitVector LCM::calculateAntloc(BasicBlock* BB) {
+
   DEBUG(errs() << "\nFinding Antloc BB\n");
   dfva* dfvaInstance = BBMap[BB];
   SmallBitVector transp = *(*dfvaInstance)[TRANSP] ;
@@ -422,11 +405,11 @@ SmallBitVector LCM::getSBVForElement(uint32_t num, BasicBlock* BB) {
 // The vector values are inserted based on the enum definition 
 //
 //    e.g. ~ANTLOC U ~TRANSP .The corresponding input vector would be :
-//     13 - for ~ANTLOC (0 for ANTLOC, plus 13 since it is compliment)
+//     19 - for ~ANTLOC (0 for ANTLOC, plus 19 since it is compliment)
 //     0 - for union operation
-//     14 - for ~ TRANSP (1 for TRANSP, plus 13 since it is compliment)
+//     20 - for ~ TRANSP (1 for TRANSP, plus 19 since it is compliment)
 //
-// Note that 13 is used in example above since TOTALBITVECTORS enum = 13
+// Note that 19 is used in example above since TOTALBITVECTORS enum = 19
 // The individual values of an expression (~ANTLOC and ~TRANSP) are computed by
 // the function getSBVForElement()
 SmallBitVector LCM::getSBVForExpression(std::vector<uint32_t> input, BasicBlock* BB) {
@@ -471,27 +454,27 @@ Value* LCM::getExpressionFromBasicBlock(uint32_t vn, BasicBlock* BB) {
   return returnValue;
 }
 
-// TODO - Change this description
 // This is the generalized data-flow equation solving framework. This works for
 // all the equations involved in Lazy Code Motion. Inputs are the following :
 // out, in : enum values for the SmallBitVector associated with the data flow
 // property being computed at In[B] and Out[B]
 // alpha, beta, gamma : std::vectors which describe the expressions that form
-// the GEN and KILL of the data flow equations
+// the GEN and KILL of the data flow equations 
 // meetOp : 1=Intersection, 0=Union
-// init : denotes value for start/exit node as the case may be
-// direction : 1=fwd. data flow, 0=backward data flow
-//
-//  e.g for DELAY
+// bottom : lattice property (0=null, 1=all)
+// top : lattice property (0=null, 1=all)
+// direction : 1=forward data flow, 0=backward data flow
+
+//  e.g for DELAY (check out report for derivation of alpha, beta, gamma)
 //  in : DELAYIN
 //  out : DELAYOUT
-//  alpha : empty vector (equivalent SmallBitVector would be allFalse)
-//  beta : 13+0 (equivalent SmallBitVector would represent ~ANTLOC)
-//  gamma : ANTIN, 1, EARLIN (equivalent SmallBitVector would represent ANTIN <intersection> EARLIN)
+//  alpha : EARLIN
+//  beta : vector with entries - 21 (~XCOMP), 1 (Intersection), DELAYOUT
+//  gamma : vector with entries - DELAYIN, 1 (Intersection), 19 (~ANTLOC), 0 (Union), EARLOUT
 //  meetOp : 1 (intersection)
-//  init : 0 
+//  bottom : 0 (null)
+//  top : 1 (all)
 //  direction : 1 (fwd.)
-//
 void LCM::callFramework(uint32_t out, uint32_t in, std::vector<uint32_t> alpha, std::vector<uint32_t> beta, std::vector<uint32_t> gamma, bool meetOp, bool bottom, bool top, bool direction) {
 
   bool Changed = false;
@@ -622,6 +605,10 @@ void LCM::callFramework(uint32_t out, uint32_t in, std::vector<uint32_t> alpha, 
   }
 }
 
+// For a given value number, this function checks all the instructions
+// associated with that value number to find the first which dominates the end
+// of the basic block passed as parameter. If no such instruction exits, then
+// NULL is returned
 Instruction* LCM::getInstructionToClone(uint32_t vn, BasicBlock* BB) {
   
   Instruction* terminator = BB->getTerminator();
@@ -649,6 +636,9 @@ Instruction* LCM::getInstructionToClone(uint32_t vn, BasicBlock* BB) {
   return NULL;
 }
 
+// For the provided insertVector (identifying the value-numbers which need
+// insertion in this basic block), check if there exists an instruction to
+// clone. If not, set the mask!
 void LCM::buildInsertMask(SmallBitVector insertVector, BasicBlock* BB) {
 
   int nextPos = insertVector.find_first();
@@ -817,6 +807,7 @@ void LCM::performGlobalDFA() {
   calculateInsertReplace();
 }
 
+// print
 void LCM::dumpSmallBitVector(SmallBitVector* BV) {
 
   DEBUG(errs() << "{");
@@ -901,6 +892,8 @@ void LCM::doInsertReplace(uint32_t vn, BasicBlock* BB,  bool insert, bool replac
       new StoreInst(newInst, myAlloca, oldInst);
     }
     else {
+      // getInstructionToClone would always return a valid entry since we have
+      // already set a mask for the insert points where no cloning is possible
       Instruction* toClone = getInstructionToClone(vn, BB);
       assert(toClone != NULL && "No instruction found for cloning. We should not have made it here");
       newInst = toClone->clone();
@@ -1008,13 +1001,14 @@ void LCM::cleanUp() {
 
   // clear the value numbering table
   rpo->cleanUp();
+  delete rpo;
 
-  // TODO
-  // destroy the DFA framework and free all allocated heap memory
+  // destroy the DFA framework 
+  for (Function::iterator BB = Func->begin(), E = Func->end(); BB != E; ++BB) 
+    delete(BBMap[BB]);
 }
 
 void LCM::printFlowEquations() {
-  
 
   // Print VN to BitVectorPosition Map
   std::vector<std::pair<uint32_t, uint32_t> > repeatedValues = rpo->getRepeatedValues();
