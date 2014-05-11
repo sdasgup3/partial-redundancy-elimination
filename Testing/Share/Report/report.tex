@@ -286,7 +286,10 @@ approach is that we could miss opportunities for loop invariant code motion. As 
       only a single expression linked to them but only if the expression is
       inside a loop. Note that we still exclude the cases where the expression
       is not part of a loop. Figure \ref{fig:barC} quantifies the savings we observe using the LLVM
-multi-source package as testbed.
+multi-source package as testbed. In the worst case scenario, the bit-vector width maintained by our 
+algorithm has to be equal to the maximum value-number assigned by the value-numbering pass. However, as 
+the results show, the average ratio of bit-vector width to maximum value-number is 0.18. This reflects a savings of
+over 80\%.
 
 \begin{figure}[htbp]
  \begin{center}
@@ -299,12 +302,14 @@ multi-source package as testbed.
 \begin{flushleft}
 \textbf{\large{Local CSE}}
 \end{flushleft}
-For our data flow equations to work correctly, a local CSE pass has to be run
-on each basic block. Basically, this path removes the redundancies inside
+For our data flow equations to work efficiently, a local CSE pass is run
+on each basic block. Basically, this pass removes the redundancies in
 straight line basic block code and sanitizes it for the iterative bit vector
-algorithm. This idea is borrowed from \cite{Knoop:1994:OCM:183432.183443}. We perform this step before calling
+algorithm. Borrowed from \cite{Knoop:1994:OCM:183432.183443}, the main idea
+is to trim the amount of work to be done by the PRE pass. For example, if there are many
+expression with the same value number in a basic blok, rather than PRE going over all of them, 
+local CSE can weed out the redundancies. We perform this step before calling
 our data flow framework. 
-\textcolor{red}{TO DO: Why needed.}
 
 \begin{flushleft}
 \textbf{\large{Insert and Replace}}
@@ -326,7 +331,7 @@ To maintain compatibility with SSA, we perform insertion and replacement
              necessary ${\Phi}$ instructions
 \end{itemize}  
 
-In appendix D, we have shown that in Figure\ref{fig:1}
+In appendix D, we have shown in Figure\ref{fig:1}
 and Figure\ref{fig:2}, the optimizations performed by our PRE pass. The intention here is to
   show how our version of PRE performed on the computations $a + b$ \& $a < b$;
 
@@ -367,11 +372,12 @@ A critical edge in a flow graph is an edge from a node with multiple successors 
 \begin{flushleft}
 \textbf{\large{Unresolved Issues}}
 \end{flushleft}
-There were a couple of issues on which we would have liked to spend more time. The first is redundancy 
-elimination for expressions which are lexically diffferent in SSA, and have different value numbers. The 
-second issue pertains to the insertion step of our algorithm and needs slightly detailed explanation.
-Suppose that an expression, with value number vn, is to be inserted in a basic block.
-Although our algorithm can handle all cases, for simplicity, assume that the
+There were three issues on which we would have liked to spend more time. The first is redundancy 
+elimination for expressions which are lexically diffferent in SSA, and have different value numbers. We came
+up with a few techniques within the bounds of our existing PRE code, but unfortunately, none could be 
+generalized to solve the core problem. The second issue pertains to the insertion step of our algorithm and 
+needs slightly detailed explanation.Suppose that an expression, with value number vn, is to be inserted in a 
+basic block. Although our algorithm can handle all cases, for simplicity, assume that the
 insertion point is the end of the basic block. To insert the expression we
 scan the list of the expressions in the whole function which have the same
 value number vn.  We then clone one of these expressions (called provider)
@@ -389,22 +395,22 @@ value number vn.  We then clone one of these expressions (called provider)
 \textbf{\Large{Testing}}
 \end{flushleft}
 
+While working on the project, we wrote 25 small test cases to capture the intricate movements
+of expressions in the partial redundancy elimination algorithm. Most of these contrived test cases can 
+be found on our project Github link \textcolor{red}{(link here or later?)}. For evaluation on real life applications, we
+chose the 3 different suites - LLVM SingleSource, LLVM MultiSource, SPEC2006. For orrectness, we checked the 
+output of the binary optimized with our PRE pass with the provided reference output. All benchmarks passed the 
+correctness test. For each suite, we present two sets of performance results. The first set compares the performance
+of binaries optimized with our version of PRE (henceforth referred to as LCM-PRE) with binaries without PRE
+optimization (henceforth referred to as BASE-PRE). The second set compares the performance of LCM-PRE binaries with binaries optimized with LLVM's version of PRE (henceforth referred to as GVN-PRE). To remove noise, we run each benchmark thrice and take the average. Also, benchmarks with running time of less than 5 seconds are not accounted for. The next two sub-sections describe the performance S-curves, following which we summarize in a table, the absolute run-times for top three benchmarks from each suite.
+
 \begin{flushleft}
 \textbf{\normalsize{LLVM Single source \& Multi source}}
 \end{flushleft}
-We have been able to successfully test our PRE pass on real codes from the LLVM
-test-suite.  Specifically, we have completed the testing for $53$ benchmarks
-from LLVM single-source and $46$ benchmarks from LLVM Multisource packages for
-correctness and performance. Correctness is checked by comparing the output of
-the binary optimized with our PRE pass with the reference output provided along
-with benchmarks. All benchmarks pass the correctness test. For performance, we
-compile the codes with LLVM's existing GVN based PRE, with our version of PRE
-(which we will henceforth refer to as LCM PRE ) and without the PRE pass and
-take the ratios of runtimes ( Base to LCM and GVN to LCM) on the hardware.
-Figures \ref{fig:6} \& \ref{fig:7} shows the S-curves for performance for the above
-benchmarks.  For 55/75 benchmarks, our pass improves the run time by varying
-amounts (upto 67\%). Performance drops for few benchmarks, but the degradation
-is bound by 8\%.
+
+We ran on $45$ benchmarks from the SingleSource package. Figures \ref{fig:6} \textcolor{red}{a??} shows the S-curve for BASE-PRE time over LCM-PRE time. For most of the benchmarks (40/45) we either increase performance (upto 42\%) or maintain the same level. $5$ benchmarks show slight degradation which is bound by 6.5\%. Figure \ref{fig:7} shows the S-curve for GVN-PRE time over LCM-PRE time. It is heartening to beat GVN-PRE in a few cases. \\
+\textcolor{red}{space here}Results for the MultiSource follow a similar trend. Out of the $45$ bechmarks from this package, $41$ show improvement (upto 23\%) or maintain same performance for BASE-PRE time over LCM-PRE time \textcolor{red}{figure}. GVN-PRE time over LCM-PRE time is shown in \textcolor{red}{figure}.
+
 
 \begin{figure}
 \begin{tabular}{c c}
@@ -485,20 +491,10 @@ is bound by 8\%.
 \begin{flushleft}
 \textbf{\normalsize{Spec2006 Benchmark}}
 \end{flushleft}
-To test our implementation, we ported the spec2006 benchmark to the LLVM testing 
-infrastructure and made the runs. Our runs are made of specint and specfp portions
-of the benchmark. Folowing is the link which lists all the inputs that we tried 
-to run those benchmarks.
-\url{http://boegel.kejo.be/ELIS/spec_cpu2006/spec_cpu2006_command_lines.html}
+We augmented our testing infrastructure to support the the SPEC2006 suite. Both SPECINT and SPECFP were tested. We, however, had to limit our testing to C/C++ benchmarks, and leave out Fortran. Getting SPEC-Fortran benchmarks to
+run inside LLVM needs extra support. We take our inputs for the SPEC runs from the following source - \url{http://boegel.kejo.be/ELIS/spec_cpu2006/spec_cpu2006_command_lines.html}
 
-As before, we compile the codes with (1) LLVM’s existing GVN based PRE, (2)with
-our LCM PRE and  (3) without the PRE pass and take the ratios of runtimes (
-    Base to LCM and GVN to LCM) on the hardware. Figures \ref{fig:8} shows the
-S-curves for performance.
-
-We found that 15/35 benchmarks, our pass improves the run time by varying
-amounts (upto 52\% w.r.t Base and 34\% for Gvn). Performance drops for few benchmarks, but the degradation
-is bound by 8\% for Base and 7\% for Gvn.
+Out of the $35$ benchmarks from SPEC, $27$ show improvement (upto 52\%) or maintain same performance for BASE-PRE time over LCM-PRE time, while degradation for the rest is bound by 10\% Figures \ref{fig:8} \textcolor{red}{a??}. Our pass triumphs over GVN-PRE for quite a few cases here as well. \textcolor{red}{figure}.
 
 \begin{figure}
 \begin{tabular}{c c}
@@ -553,12 +549,20 @@ MultiSource/Benchmarks/TSVC/NodeSplitting-flt & 7.378                           
 MultiSource/Benchmarks/TSVC/Expansion-flt     & 6.339                                                        & 5.734                                                      & 5.308                                                                           & 1.105 & 0.925 \\ \hline
 MultiSource/Benchmarks/TSVC/Expansion-dbl     & 7.134                                                        & 5.787                                                      & 5.355                                                                           & 1.232 & 0.925 \\ \hline
 SPECINT2006/456.hmmer                         & 1547.77                                                      & 1019.885                                                   & 993.581                                                                         & 1.517 & 0.974 \\ \hline
-SPECINT2006/403.gcc                           & 0.007                                                        & 0.005                                                      & 0.006                                                                           & 1.4   & 1.2   \\ \hline
+\textcolor{red} {too low run time}SPECINT2006/403.gcc                           & 0.007                                                        & 0.005                                                      & 0.006                                                                           & 1.4   & 1.2   \\ \hline
 SPECINT2006/464.h264ref                       & 185.551                                                      & 168.563                                                    & 163.363                                                                         & 1.100 & 0.969 \\ \hline
 \end{tabular}
 \label{tab:1}
 \end{figure}
 
+\begin{flushleft}
+\textbf{\large{{Performance Analysis }}}
+\end{flushleft} 
+\textcolor{red}{ something about degradation and Pin !!}
+
+\begin{flushleft}
+\textbf{\Large{{References }}}
+\end{flushleft} 
 
 \cmnt{
 Apart from measured runtime on the hardware, another metric to quantify the
