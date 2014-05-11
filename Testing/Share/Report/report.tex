@@ -402,7 +402,15 @@ chose the 3 different suites - LLVM SingleSource, LLVM MultiSource, SPEC2006. Fo
 output of the binary optimized with our PRE pass with the provided reference output. All benchmarks passed the 
 correctness test. For each suite, we present two sets of performance results. The first set compares the performance
 of binaries optimized with our version of PRE (henceforth referred to as LCM-PRE) with binaries without PRE
-optimization (henceforth referred to as BASE-PRE). The second set compares the performance of LCM-PRE binaries with binaries optimized with LLVM's version of PRE (henceforth referred to as GVN-PRE). To remove noise, we run each benchmark thrice and take the average. Also, benchmarks with running time of less than 5 seconds are not accounted for. The next two sub-sections describe the performance S-curves, following which we summarize in a table, the absolute run-times for top three benchmarks from each suite.
+optimization (henceforth referred to as BASE-PRE). The second set compares the
+performance of LCM-PRE binaries with binaries optimized with LLVM's version of
+PRE (henceforth referred to as GVN-PRE). To remove noise, we run each benchmark
+thrice and take the average. Also, benchmarks with running time of less than 5
+seconds are not accounted for. The next two sub-sections describe the
+performance S-curves, following which we summarize in a table, the absolute
+run-times for top three benchmarks from each suite. For a meaningful comparison,
+we use the same set of optimization knobs for BASE-PRE, GVN-PRE and LCM-PRE.
+This is also shown in the table. \textcolor{red}{add the knobs}
 
 \begin{flushleft}
 \textbf{\normalsize{LLVM Single source \& Multi source}}
