@@ -7,6 +7,7 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Support/Debug.h"
+#define  DEBUG_TYPE ""
 #include "llvm/IR/InstIterator.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/PostOrderIterator.h"
