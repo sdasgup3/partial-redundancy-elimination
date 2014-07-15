@@ -177,7 +177,7 @@ bool LCM::runOnFunction(Function &F)
   changeIR();
   
   // handle stats
-  NumValueNumbers += rpo->getMaxValueNumber();  
+  //NumValueNumbers += rpo->getMaxValueNumber();  
   BitVectorWidth += bitVectorWidth;
   NumLCMMaskedInserts += insertMask.count();
   endCount = NumLCMCompInserted;
