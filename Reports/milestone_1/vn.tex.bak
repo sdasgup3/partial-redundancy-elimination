@@ -1,0 +1,42 @@
+\chapter{Value Numbering} \label{ch:vn}
+
+\section{Approach}
+Prior research has shown that value numbering can increase opportunities for PRE.
+LLVM presently has a GVN-PRE pass which exploits this. However, value numbering in 
+GVN-PRE is tightly coupled with the code for removing redundancies, and hence
+we deem it not useful for our purposes. We have written our own value numbering
+pass which feeds expression value numbers to the PRE stage. It should be noted,
+     however, that we do not implement value numbering from scratch and use an
+     old (now defunct) LLVM pass as a starting point. Most importantly, we
+     augment the basic value numbering in the following ways - 
+     
+\begin{itemize}     
+  \item Add the notion of leader expression (described below), with associated
+  data structures and functions. 
+  \item Functionality to support value-number-based bitvectors rather than
+  expression-name-based bitvectors. 
+  \item (Optimization 1) If the expression operator is either of AND, OR, CMP::EQ
+  or CMP::NE, and the operands have the same value number, we replace all uses
+  accordingly and then delete the expression.
+  \item (Optimization 2) If all operands of an expression are constants, then we can 
+  evaluate and propagate constants. 
+  \item (Optimization 3) If one operand of an expression is a constant (0 or 1), then 
+  we can simplify the expression. e.g. {a+0 = a} , {b*1 = b}.
+  \item (Optimization 4) If the incoming expressions to a PHI node have the same value 
+  number, then the PHI node gets that same value number
+\end{itemize}  
+  As per our testing, optimizations 2 and 3 are also done by the reassociation
+  pass in LLVM. In our final code we omit our implementation and rely on the
+  more robust LLMV pass. Optimizations 1 and 4, however, are still our contribution.
+
+\section{Notion Of Leader Expression}  
+The value numbering algorithm computes the RPO solution as outlined in Tarjan's
+SCC paper\cite{Cooper95scc-basedvalue}. It goes over the basic blocks in
+reverse post order and adds new expressions to a hash table based on the
+already computed value numbers of the operands. We call an expression a
+`leader' if at the time of computing its value number, the value number doesn’t 
+already exist in the hash table. In other words, out of a potentially large set of
+expressions that map to a particular value number, the leader expression was
+the first to be encountered while traversing the function in reverse post
+order. Leader expressions are vital to our algorithm as outlined in the section
+on PRE.

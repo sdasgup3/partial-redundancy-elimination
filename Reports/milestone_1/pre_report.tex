@@ -1,0 +1,20 @@
+\begin{flushleft}
+\textbf{\Large{Types Of Redundancies}}
+\end{flushleft}
+Given two expression X and Y in the source code, following are the possibilities - \\
+\indent1. X and Y are lexically equivalent, and have the same value numbers \\
+\indent2. X and Y are lexically equivalent, but have different value numbers \\
+\indent3. X and Y are lexically different, but have the same value numbers \\
+\indent4. X and Y are lexically different, and have different value numbers \\
+In the source code, there could be opportunities for redundancy elimination in
+cases 1, 2 and 3 above. If the source code is converted to an intermediate
+representation in SSA form then case 2 becomes an impossibility (by guarantees of SSA). Therefore,
+               our algorithm presently handles the cases when X and Y are
+               lexically same/different, but both have the same value number (cases 1 and 3).
+               Driven by this observation, we implement value number based code
+               motion, the details of which are presented below. It should be
+               noted that even though case 2 above is not possible in SSA,
+               the source code redundancies  of this type transform into that
+               of type case 4. Figure \ref{fig:1} presents an illustration of the same. \textbf{One of the items for
+               future work in the semester is to handle this case.} 
+
