@@ -1,3 +1,5 @@
+[![DOI](https://zenodo.org/badge/18170897.svg)](https://zenodo.org/badge/latestdoi/18170897)
+
 Partial Redundancy Elimination (PRE)
 ====================================
 
